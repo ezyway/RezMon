@@ -1,6 +1,3 @@
-[![Will be Available on GNOME Extensions](https://img.shields.io/badge/Available%20on-GNOME%20Extensions-green)](https://extensions.gnome.org/extension/6952/rezmon/)
-
-
 ## Overview
 This is a minimalist system monitor extension for GNOME Shell. It displays CPU( Useage | Average Clock | Temperature ), RAM (Free | Used) and NET ( Download | Upload ) GNOME Shell top bar. 
 
@@ -30,4 +27,4 @@ The `install.sh` script copies the extension files to your local GNOME extension
 
 ## Credits
 
-System Monitor Tray Indicator I [Gnome Extensions](https://extensions.gnome.org/extension/6586/system-monitor-tray-indicator/) page (recommended). 
+System Monitor Tray Indicator [Gnome Extensions](https://extensions.gnome.org/extension/6586/system-monitor-tray-indicator/)
