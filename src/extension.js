@@ -19,6 +19,7 @@ import Gio from 'gi://Gio';
 import St from 'gi://St';
 import Clutter from 'gi://Clutter';
 import { Button } from 'resource:///org/gnome/shell/ui/panelMenu.js';
+import { PopupMenuItem } from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import GObject from 'gi://GObject';
 import { panel } from 'resource:///org/gnome/shell/ui/main.js';
 
@@ -28,19 +29,22 @@ export class RezMon extends Button {
 
   // Initialize the indicator
   _init() {
-    super._init(0, "System Monitor Indicator", false);
-
-    
-    this.box = new St.BoxLayout();
+    super._init(0, "Resource Monitor", false);
 
     // Create a layout box, initialize Labels and add to box, add box to 'this' actor
-    this.cpu_label = new St.Label({ text: "-CPU-", y_align: Clutter.ActorAlign.CENTER, style: 'margin-right: 12px;' });
-    this.ram_label = new St.Label({ text: "-RAM-", y_align: Clutter.ActorAlign.CENTER, style: 'margin-right: 12px;' });
-    this.net_label = new St.Label({ text: "-NET-", y_align: Clutter.ActorAlign.CENTER, style: 'margin-right: 12px;' });
-    this.box.add_child(this.cpu_label);
-    this.box.add_child(this.ram_label);
-    this.box.add_child(this.net_label);
+    this.box = new St.BoxLayout();
+    this.labels = []; // Array to store labels
+    this.labels.push(new St.Label({ text: "-CPU-", y_align: Clutter.ActorAlign.CENTER, style: 'margin-right: 12px;' }));
+    this.labels.push(new St.Label({ text: "-RAM-", y_align: Clutter.ActorAlign.CENTER, style: 'margin-right: 12px;' }));
+    this.labels.push(new St.Label({ text: "-NET-", y_align: Clutter.ActorAlign.CENTER, style: 'margin-right: 12px;' }));
+    this.labels.forEach(label => this.box.add_child(label)); // Add labels to the box
     this.add_child(this.box);
+
+    //Pre Set Values ---------------------------------------------------------------------------------------------
+
+    // Feature List
+    this.feature = ['CPU', 'RAM', 'NET'];
+    this.feature_activations = [1, 1, 1];
 
     // Initialize previous CPU values
     this.prev_idle = 0;
@@ -51,20 +55,67 @@ export class RezMon extends Button {
     this.prev_tx_bytes = 0;
     this.prev_rx_bytes = 0;    
 
+    //Pre Set Values ---------------------------------------------------------------------------------------------
+
     // Updating metrics
     this._update_metrics();
+
+    // Menu Stuff
+    this._render_menu();
     
   }
+
+  // Renders popup menu
+  _render_menu(){
+    this.menu.removeAll();
+
+    // Create menu items
+    for (let i = 0; i < this.feature.length; i++) {
+      let item = new PopupMenuItem(this.feature[i], {
+        can_focus: true,
+        hover: true,
+        reactive: true,
+      });
+      
+      item.connect('activate', () => {
+        log("added item");
+        this.feature_activations[i] = !this.feature_activations[i]; // Toggle feature activation
+        // Set visibility of labels based on feature activations
+        this.labels.forEach((label, index) => {
+          label.visible = this.feature_activations[index];
+        });
+      });
+      this.menu.addMenuItem(item);
+    }
+  }
+
 
   // Function to update all metrics (CPU, RAM, NET)
   _update_metrics() {
     const priority = GLib.PRIORITY_DEFAULT_IDLE;
     const refresh_time = 1; // Time in seconds
 
-    // Update individual metrics
-    this._update_cpu();
-    this._update_ram();
-    this._update_net();
+    for(let i = 0; i < this.feature_activations.length; i++){
+      if(this.feature_activations[i] == 1){
+        switch(i) {
+          case 0:
+            this._update_cpu();
+            break;
+
+          case 1:
+            this._update_ram();
+            break;
+
+          case 2:
+            this._update_net();
+            break;
+
+          default:
+            break;
+        }
+      }
+    }
+    
 
     // Remove existing timeout if any
     if (this._timeout) {
@@ -156,19 +207,19 @@ export class RezMon extends Button {
       let cpu_temp = 0;
 
       // CPU TEMP - Execute 'sensors' command to get CPU temperature
-      let [success, stdout, stderr] = GLib.spawn_command_line_sync('sensors');
-      if (success) {
-        const output = stdout.toString();
+      // let [success, stdout, stderr] = GLib.spawn_command_line_sync('sensors');
+      // if (success) {
+      //   const output = stdout.toString();
 
-        // Define a regular expression pattern to match the CPU temperature
-        const pattern = /Tctl:\s+\+([\d.]+)°C/;
-        const match = pattern.exec(output);
+      //   // Define a regular expression pattern to match the CPU temperature
+      //   const pattern = /Tctl:\s+\+([\d.]+)°C/;
+      //   const match = pattern.exec(output);
         
-        cpu_temp = parseInt(match[1]);
-      }
+      //   cpu_temp = parseInt(match[1]);
+      // }
 
       // Set Label
-      this.cpu_label.set_text(`CPU( ${cpu_usage} % | ${ghz_value.toFixed(2)} GHz | ${cpu_temp} ℃ )`);
+      this.labels[0].set_text(`CPU( ${cpu_usage} % | ${ghz_value.toFixed(2)} GHz | ${cpu_temp} ℃ )`);
 
     } catch (e) {
       logError(e, `Failed to update CPU usage.`);
@@ -212,7 +263,7 @@ export class RezMon extends Button {
       mem_used = mem_used / (1024 * 1024);
       mem_available = mem_available / (1024 * 1024);
 
-      this.ram_label.set_text(`RAM( ${mem_used.toFixed(1)} GB | ${mem_available.toFixed(1)} GB )`);
+      this.labels[1].set_text(`RAM( ${mem_used.toFixed(1)} GB | ${mem_available.toFixed(1)} GB )`);
       
     } catch (e) {
       logError(e, `Failed to update memory usage.`);
@@ -248,7 +299,7 @@ export class RezMon extends Button {
         const rx_speed = ((rx_bytes - this.prev_rx_bytes) / time_difference) / (1024 * 1024);
 
         // Update labels with network traffic speed
-        this.net_label.set_text(`NET( ￬ ${rx_speed.toFixed(1)} MB/s | ￪ ${tx_speed.toFixed(1)} MB/s )`);
+        this.labels[2].set_text(`NET( ￬ ${rx_speed.toFixed(1)} MB/s | ￪ ${tx_speed.toFixed(1)} MB/s )`);
 
         // Store current values for the next calculation
         this.prev_time = current_time;
@@ -281,7 +332,7 @@ export default class SystemMonitorExtension {
   // Enable the extension
   enable() {
     this._indicator = new RezMon();
-    panel.addToStatusArea('system-indicator', this._indicator);
+    panel.addToStatusArea('RezMon', this._indicator);
   }
 
   // Disable the extension
@@ -291,3 +342,4 @@ export default class SystemMonitorExtension {
     this._indicator = undefined;
   }
 }
+
