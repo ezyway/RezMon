@@ -1,10 +1,13 @@
 /*
- * System Monitor Tray Indicator
  * 
- * Author: Michael Knap
- * Description: Displays CPU and Memory usage on the top bar.
+ * 
+ * Author: Azzlol
+ * Description: Displays CPU(use percentage, average clock speed, temp), RAM(Used, Free),
+ * NET(Download, Upload) usage on the top bar.
  * Version: 1.0
- * GNOME Shell Version: 45 (Tested) 
+ * GNOME Shell Version: 46 (Tested) 
+ * 
+ * Credits: Michael Knap - System Monitor Tray Indicator - https://github.com/michaelknap/gnome-system-monitor-indicator
  * 
  * License: MIT License
  */
@@ -15,50 +18,28 @@ import GLib from 'gi://GLib';
 import Gio from 'gi://Gio';
 import St from 'gi://St';
 import Clutter from 'gi://Clutter';
-import {
-  Button
-} from 'resource:///org/gnome/shell/ui/panelMenu.js';
+import { Button } from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import GObject from 'gi://GObject';
-import {
-  panel
-} from 'resource:///org/gnome/shell/ui/main.js';
+import { panel } from 'resource:///org/gnome/shell/ui/main.js';
 
 
 // Define the main class for the system monitor indicator
-export class SystemMonitorIndicator extends Button {
+export class RezMon extends Button {
 
   // Initialize the indicator
   _init() {
     super._init(0, "System Monitor Indicator", false);
 
-    // Create a layout box to contain labels
+    
     this.box = new St.BoxLayout();
 
-    // Initialize CPU usage label
-    this.cpu_label = new St.Label({
-      text: "-CPU-",
-      y_align: Clutter.ActorAlign.CENTER,
-      style: 'margin-right: 12px;'
-    });
+    // Create a layout box, initialize Labels and add to box, add box to 'this' actor
+    this.cpu_label = new St.Label({ text: "-CPU-", y_align: Clutter.ActorAlign.CENTER, style: 'margin-right: 12px;' });
+    this.ram_label = new St.Label({ text: "-RAM-", y_align: Clutter.ActorAlign.CENTER, style: 'margin-right: 12px;' });
+    this.net_label = new St.Label({ text: "-NET-", y_align: Clutter.ActorAlign.CENTER, style: 'margin-right: 12px;' });
     this.box.add_child(this.cpu_label);
-
-    // Initialize Memory usage label
-    this.ram_label = new St.Label({
-      text: "-RAM-",
-      y_align: Clutter.ActorAlign.CENTER,
-      style: 'margin-right: 12px;'
-    });
     this.box.add_child(this.ram_label);
-    
-    // Initialize WLAN Speed label
-    this.net_label = new St.Label({
-      text: "-NET-",
-      y_align: Clutter.ActorAlign.CENTER,
-      style: 'margin-right: 12px;'
-    });
     this.box.add_child(this.net_label);
-
-    // Add the layout box to this actor
     this.add_child(this.box);
 
     // Initialize previous CPU values
@@ -70,8 +51,9 @@ export class SystemMonitorIndicator extends Button {
     this.prev_tx_bytes = 0;
     this.prev_rx_bytes = 0;    
 
-    // Start updating metrics
+    // Updating metrics
     this._update_metrics();
+    
   }
 
   // Function to update all metrics (CPU, RAM, NET)
@@ -108,7 +90,8 @@ export class SystemMonitorIndicator extends Button {
       let current_cpu_used = 0;
       let current_cpu_total = 0;
       let current_cpu_usage = 0;
-
+      
+      // CPU Usage -----------------------------------------------------------------------
       let cpu_usage = "";
 
       for (let i = 0; i < cpu_content_lines.length; i++) {
@@ -137,9 +120,6 @@ export class SystemMonitorIndicator extends Button {
           if (total_diff > 0) { // Check to avoid division by zero
             current_cpu_usage = (used_diff / total_diff) * 100;
             cpu_usage = current_cpu_usage.toFixed(0).toString();
-            // this.cpu_label.set_text(
-              // `CPU: ${current_cpu_usage.toFixed(2)}%`);
-            // );
           }
 
           // Store current values for the next calculation
@@ -149,7 +129,7 @@ export class SystemMonitorIndicator extends Button {
           break; // Break after processing the first 'cpu' line
         }
       }
-      // CPU GHz 
+      // CPU GHz -----------------------------------------------------------------------
       const ghz_file = Gio.File.new_for_path('/proc/cpuinfo');
       const [, ghz_content] = ghz_file.load_contents(null);
       const ghz_text_decoder = new TextDecoder("utf-8");
@@ -172,6 +152,7 @@ export class SystemMonitorIndicator extends Button {
       // Average GHz of all core clocks
       let ghz_value = (mhz_count / cpu_count)/1000;
 
+      // CPU Temp -----------------------------------------------------------------------
       let cpu_temp = 0;
 
       // CPU TEMP - Execute 'sensors' command to get CPU temperature
@@ -246,7 +227,7 @@ export class SystemMonitorIndicator extends Button {
         const content_string = text_decoder.decode(contents);
         const content_lines = content_string.split('\n');
 
-        let interface_name = 'wlp1s0'; // Change this to your desired network interface name
+        let interface_name = 'enp0s3'; // Change this to your desired network interface name
         let tx_bytes = 0;
         let rx_bytes = 0;
 
@@ -287,10 +268,10 @@ export class SystemMonitorIndicator extends Button {
   }
 }
 
-// Register the SystemMonitorIndicator class
+// Register the RezMon class
 GObject.registerClass({
-  GTypeName: 'SystemMonitorIndicator'
-}, SystemMonitorIndicator);
+  GTypeName: 'RezMon'
+}, RezMon);
 
 
 // Export the main extension class
@@ -299,7 +280,7 @@ export default class SystemMonitorExtension {
 
   // Enable the extension
   enable() {
-    this._indicator = new SystemMonitorIndicator();
+    this._indicator = new RezMon();
     panel.addToStatusArea('system-indicator', this._indicator);
   }
 
