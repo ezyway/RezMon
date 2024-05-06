@@ -2,17 +2,17 @@
 
 
 ## Overview
-This is a minimalist system monitor extension for GNOME Shell. It displays CPU, RAM and Swap usage right in your GNOME Shell top bar. 
+This is a minimalist system monitor extension for GNOME Shell. It displays CPU( Useage | Average Clock | Temperature ), RAM (Free | Used) and NET ( Download | Upload ) GNOME Shell top bar. 
 
 ![Screenshot](./screenshots/)
 
 ## Compatibility
 
-Tested on - GNOME SHELL 46 - Ubuntu 24.04:
+Tested on - GNOME SHELL 46 - Ubuntu 24.04
 
 ## Installation
 
-Install via [Gnome Extensions](https://extensions.gnome.org/extension/6586/system-monitor-tray-indicator/) page (recommended). 
+Install via [Gnome Extensions](https://extensions.gnome.org/extension/6952/rezmon/) page (recommended). 
 
 Or by downloading this repository. 
 
@@ -27,6 +27,7 @@ Once done, manually restart the GNOME Shell for the changes to take effect. On *
 
 The `install.sh` script copies the extension files to your local GNOME extensions directory. Once GNOME restarts, you can manage extension via Extensions app.
 
-## License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+## Credits
+
+System Monitor Tray Indicator I [Gnome Extensions](https://extensions.gnome.org/extension/6586/system-monitor-tray-indicator/) page (recommended). 
