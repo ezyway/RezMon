@@ -3,5 +3,6 @@
   "description": "Shows info about CPU, RAM and NET on Top Bar",
   "uuid": "rezmon@azz.lol",
   "shell-version": [ "46" ],
-  "url": "https://github.com/ezyway/RezMon"
+  "url": "https://github.com/ezyway/RezMon",
+  "version" : 1.1
 }
