@@ -67,6 +67,7 @@ export class RezMon extends Button {
 
   // Renders popup menu
   _render_menu(){
+    log('Rendering Popup Menu');
     this.menu.removeAll();
 
     // Create menu items
@@ -78,7 +79,7 @@ export class RezMon extends Button {
       });
       
       item.connect('activate', () => {
-        log("added item");
+        log("Click Event on Popup Menu: ", this.feature[i]);
         this.feature_activations[i] = !this.feature_activations[i]; // Toggle feature activation
         // Set visibility of labels based on feature activations
         this.labels.forEach((label, index) => {
@@ -207,16 +208,16 @@ export class RezMon extends Button {
       let cpu_temp = 0;
 
       // CPU TEMP - Execute 'sensors' command to get CPU temperature
-      // let [success, stdout, stderr] = GLib.spawn_command_line_sync('sensors');
-      // if (success) {
-      //   const output = stdout.toString();
+      let [success, stdout, stderr] = GLib.spawn_command_line_sync('sensors');
+      if (success) {
+        const output = stdout.toString();
 
-      //   // Define a regular expression pattern to match the CPU temperature
-      //   const pattern = /Tctl:\s+\+([\d.]+)°C/;
-      //   const match = pattern.exec(output);
+        // Define a regular expression pattern to match the CPU temperature
+        const pattern = /Tctl:\s+\+([\d.]+)°C/;
+        const match = pattern.exec(output);
         
-      //   cpu_temp = parseInt(match[1]);
-      // }
+        cpu_temp = parseInt(match[1]);
+      }
 
       // Set Label
       this.labels[0].set_text(`CPU( ${cpu_usage} % | ${ghz_value.toFixed(2)} GHz | ${cpu_temp} ℃ )`);
@@ -272,39 +273,45 @@ export class RezMon extends Button {
   
   _update_net() {
     try {
-        const netdev_file = Gio.File.new_for_path('/proc/net/dev');
-        const [, contents] = netdev_file.load_contents(null);
-        const text_decoder = new TextDecoder("utf-8");
-        const content_string = text_decoder.decode(contents);
-        const content_lines = content_string.split('\n');
+      let activeInterfaceName = '';
+      let [result, output, standardError, exitStatus] = GLib.spawn_command_line_sync('bash -c "ip route get 1 | awk \'{print $5; exit}\'"');
+      if (result) {
+          let textDecoder = new TextDecoder("utf-8");
+          activeInterfaceName = textDecoder.decode(new Uint8Array(output)).trim();
+      }
+      const netdev_file = Gio.File.new_for_path('/proc/net/dev');
+      const [, contents] = netdev_file.load_contents(null);
+      const text_decoder = new TextDecoder("utf-8");
+      const content_string = text_decoder.decode(contents);
+      const content_lines = content_string.split('\n');
 
-        let interface_name = 'enp0s3'; // Change this to your desired network interface name
-        let tx_bytes = 0;
-        let rx_bytes = 0;
+      let interface_name = activeInterfaceName;
+      let tx_bytes = 0;
+      let rx_bytes = 0;
 
-        for (let i = 2; i < content_lines.length; i++) {
-            const line = content_lines[i].trim();
-            if (line.startsWith(interface_name)) {
-                const values = line.split(/\s+/);
-                tx_bytes = parseInt(values[9]);
-                rx_bytes = parseInt(values[1]);
-                break;
-            }
-        }
+      for (let i = 2; i < content_lines.length; i++) {
+          const line = content_lines[i].trim();
+          if (line.startsWith(interface_name)) {
+              const values = line.split(/\s+/);
+              tx_bytes = parseInt(values[9]);
+              rx_bytes = parseInt(values[1]);
+              break;
+          }
+      }
 
-        // Calculate network traffic speed in bytes per second
-        const current_time = Date.now() / 1000; // Convert milliseconds to seconds
-        const time_difference = current_time - this.prev_time;
-        const tx_speed = ((tx_bytes - this.prev_tx_bytes) / time_difference) / (1024 * 1024);
-        const rx_speed = ((rx_bytes - this.prev_rx_bytes) / time_difference) / (1024 * 1024);
+      // Calculate network traffic speed in bytes per second
+      const current_time = Date.now() / 1000; // Convert milliseconds to seconds
+      const time_difference = current_time - this.prev_time;
+      const tx_speed = ((tx_bytes - this.prev_tx_bytes) / time_difference) / (1024 * 1024);
+      const rx_speed = ((rx_bytes - this.prev_rx_bytes) / time_difference) / (1024 * 1024);
 
-        // Update labels with network traffic speed
-        this.labels[2].set_text(`NET( ￬ ${rx_speed.toFixed(1)} MB/s | ￪ ${tx_speed.toFixed(1)} MB/s )`);
+      // Update labels with network traffic speed
+      this.labels[2].set_text(`NET( ￬ ${rx_speed.toFixed(1)} MB/s | ￪ ${tx_speed.toFixed(1)} MB/s )`);
 
-        // Store current values for the next calculation
-        this.prev_time = current_time;
-        this.prev_tx_bytes = tx_bytes;
-        this.prev_rx_bytes = rx_bytes;
+      // Store current values for the next calculation
+      this.prev_time = current_time;
+      this.prev_tx_bytes = tx_bytes;
+      this.prev_rx_bytes = rx_bytes;
     } catch (e) {
         logError(e, `Failed to update network traffic speed.`);
     }
