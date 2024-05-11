@@ -4,7 +4,7 @@
  * Author: Azzlol
  * Description: Displays CPU(use percentage, average clock speed, temp), RAM(Used, Free),
  * NET(Download, Upload) usage on the top bar.
- * Version: 3
+ * Version: 4
  * GNOME Shell Version: 46 (Tested) 
  * 
  * Credits: Michael Knap - System Monitor Tray Indicator - https://github.com/michaelknap/gnome-system-monitor-indicator
