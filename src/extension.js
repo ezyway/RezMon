@@ -4,7 +4,7 @@
  * Author: Azzlol
  * Description: Displays CPU(use percentage, average clock speed, temp), RAM(Used, Free),
  * NET(Download, Upload) usage on the top bar.
- * Version: 4
+ * Version: 5
  * GNOME Shell Version: 46 (Tested) 
  * 
  * Credits: Michael Knap - System Monitor Tray Indicator - https://github.com/michaelknap/gnome-system-monitor-indicator
@@ -219,16 +219,16 @@ export class RezMon extends Button {
       let cpu_temp = 0;
 
       // CPU TEMP - Execute 'sensors' command to get CPU temperature
-      let [success, stdout, stderr] = GLib.spawn_command_line_sync('sensors');
-      if (success) {
-        const output = stdout.toString();
+      // let [success, stdout, stderr] = GLib.spawn_command_line_sync('sensors');
+      // if (success) {
+      //   const output = stdout.toString();
 
-        // Define a regular expression pattern to match the CPU temperature
-        const pattern = /Tctl:\s+\+([\d.]+)°C/;
-        const match = pattern.exec(output);
+      //   // Define a regular expression pattern to match the CPU temperature
+      //   const pattern = /Tctl:\s+\+([\d.]+)°C/;
+      //   const match = pattern.exec(output);
         
-        cpu_temp = parseInt(match[1]);
-      }
+      //   cpu_temp = parseInt(match[1]);
+      // }
 
       // Set Label
       this.labels[0].set_text(`CPU( ${cpu_usage} % | ${ghz_value.toFixed(2)} GHz | ${cpu_temp} ℃ )`);
@@ -270,7 +270,7 @@ export class RezMon extends Button {
       mem_used = mem_used / (1024 * 1024);
       mem_available = mem_available / (1024 * 1024);
 
-      this.labels[1].set_text(`RAM( ${mem_used.toFixed(1)} GB | ${mem_available.toFixed(1)} GB )`);
+      this.labels[1].set_text(`RAM( ${mem_used.toFixed(1).padStart(2)} GB | ${mem_available.toFixed(1).padStart(2)} GB )`);
       
     } catch (e) {
       logError(e, `Failed to update memory usage.`);
@@ -304,15 +304,16 @@ export class RezMon extends Button {
       // Calculate network traffic speed in bytes per second
       const current_time = Date.now() / 1000; // Convert milliseconds to seconds
       const time_difference = current_time - this.prev_time;
-      // const tx_speed = ((tx_bytes - this.prev_tx_bytes) / time_difference) / (1024 * 1024);
-      // const rx_speed = ((rx_bytes - this.prev_rx_bytes) / time_difference) / (1024 * 1024);
 
-      let tx_speed = ((tx_bytes - this.prev_tx_bytes) / time_difference);
-      let rx_speed = ((rx_bytes - this.prev_rx_bytes) / time_difference);
+      // KB/s
+      let tx_speed = ((tx_bytes - this.prev_tx_bytes) / time_difference) / 1024;
+      let rx_speed = ((rx_bytes - this.prev_rx_bytes) / time_difference) / 1024;
 
-      const units = ['B/s', 'KB/s', 'MB/s', 'GB/s', 'TB/s'];
+      const units = ['KB/s', 'MB/s', 'GB/s', 'TB/s'];
       let tx_unit_index = 0;
       let rx_unit_index = 0;
+      let rx_label = "";
+      let tx_label = "";
 
       while (tx_speed > 1024 || rx_speed > 1024) {
         if(tx_speed > 1024){
@@ -328,11 +329,10 @@ export class RezMon extends Button {
 
 
       // Update labels with network traffic speed
-      // this.labels[2].set_text(`NET( ￬ ${rx_speed.toFixed(1)} MB/s | ￪ ${tx_speed.toFixed(1)} MB/s )`);
-      const rx_label = `${rx_speed.toFixed(0)} ${units[rx_unit_index]}`;
-      const tx_label = `${tx_speed.toFixed(0)} ${units[tx_unit_index]}`;
+      rx_label = `${rx_speed.toFixed(0).padStart(2, 0).padStart(3)} ${units[rx_unit_index]}`;
+      tx_label = `${tx_speed.toFixed(0).padStart(2, 0).padStart(3)} ${units[tx_unit_index]}`;
 
-      this.labels[2].set_text(`NET( ￬ ${rx_label} | ￪ ${tx_label} )`);
+      this.labels[2].set_text(`NET( ${rx_label} ￬￪ ${tx_label} )`);
 
       // Store current values for the next calculation
       this.prev_time = current_time;
@@ -375,4 +375,5 @@ export default class SystemMonitorExtension {
     this._indicator = undefined;
   }
 }
+
 
