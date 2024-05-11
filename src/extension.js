@@ -42,9 +42,9 @@ export class RezMon extends Button {
 
     //Pre Set Values ---------------------------------------------------------------------------------------------
 
-    // Feature List
     this.feature = ['CPU', 'RAM', 'NET'];
     this.feature_activations = [1, 1, 1];
+    this.feature_file_location = ['/proc/stat', '/proc/meminfo', '/proc/net/dev'];
 
     // Initialize previous CPU values
     this.prev_idle = 0;
@@ -130,14 +130,25 @@ export class RezMon extends Button {
     });
   }
 
+  _file_open(file_path){
+    try{
+      // Get file name and return lines of the file as array
+      const file = Gio.File.new_for_path(file_path);
+      const [, content] = file.load_contents(null);
+      const text_decoder = new TextDecoder("utf-8");
+      const content_str = text_decoder.decode(content);
+      const content_lines = content_str.split('\n');
+      return content_lines;
+    }
+    catch (e){
+      logError(e, `Could not process: `, file_path);
+    }
+  }
+
   // Function to update CPU usage
   _update_cpu() {
     try {
-      const cpu_file = Gio.File.new_for_path('/proc/stat');
-      const [, cpu_content] = cpu_file.load_contents(null);
-      const cpu_text_decoder = new TextDecoder("utf-8");
-      const cpu_content_str = cpu_text_decoder.decode(cpu_content);
-      const cpu_content_lines = cpu_content_str.split('\n');
+      let content_lines = this._file_open('/proc/stat');
 
       let current_cpu_used = 0;
       let current_cpu_total = 0;
@@ -146,8 +157,8 @@ export class RezMon extends Button {
       // CPU Usage -----------------------------------------------------------------------
       let cpu_usage = "";
 
-      for (let i = 0; i < cpu_content_lines.length; i++) {
-        const fields = cpu_content_lines[i].trim().split(/\s+/);
+      for (let i = 0; i < content_lines.length; i++) {
+        const fields = content_lines[i].trim().split(/\s+/);
 
         if (fields[0] === 'cpu') {
           const nums = fields.slice(1).map(Number);
@@ -181,18 +192,17 @@ export class RezMon extends Button {
           break; // Break after processing the first 'cpu' line
         }
       }
+
+
       // CPU GHz -----------------------------------------------------------------------
-      const ghz_file = Gio.File.new_for_path('/proc/cpuinfo');
-      const [, ghz_content] = ghz_file.load_contents(null);
-      const ghz_text_decoder = new TextDecoder("utf-8");
-      const ghz_content_str = ghz_text_decoder.decode(ghz_content);
-      const ghz_content_lines = ghz_content_str.split('\n');
+      content_lines = undefined;
+      content_lines = this._file_open('/proc/cpuinfo');
 
       let mhz_count = 0;
       let cpu_count = 0;
 
-      for (let i = 0; i < ghz_content_lines.length; i++) {
-        const fields = ghz_content_lines[i].trim().split(/\s+/);
+      for (let i = 0; i < content_lines.length; i++) {
+        const fields = content_lines[i].trim().split(/\s+/);
 
         // check if element 1 and 2 is 'cpu' and 'MHz' in field = "cpu MHz : 3000.000"
         if (fields[0] === 'cpu' && fields[1] === 'MHz') {
@@ -204,37 +214,34 @@ export class RezMon extends Button {
       // Average GHz of all core clocks
       let ghz_value = (mhz_count / cpu_count)/1000;
 
+
       // CPU Temp -----------------------------------------------------------------------
       let cpu_temp = 0;
 
       // CPU TEMP - Execute 'sensors' command to get CPU temperature
-      let [success, stdout, stderr] = GLib.spawn_command_line_sync('sensors');
-      if (success) {
-        const output = stdout.toString();
+      // let [success, stdout, stderr] = GLib.spawn_command_line_sync('sensors');
+      // if (success) {
+      //   const output = stdout.toString();
 
-        // Define a regular expression pattern to match the CPU temperature
-        const pattern = /Tctl:\s+\+([\d.]+)°C/;
-        const match = pattern.exec(output);
+      //   // Define a regular expression pattern to match the CPU temperature
+      //   const pattern = /Tctl:\s+\+([\d.]+)°C/;
+      //   const match = pattern.exec(output);
         
-        cpu_temp = parseInt(match[1]);
-      }
+      //   cpu_temp = parseInt(match[1]);
+      // }
 
       // Set Label
       this.labels[0].set_text(`CPU( ${cpu_usage} % | ${ghz_value.toFixed(2)} GHz | ${cpu_temp} ℃ )`);
 
     } catch (e) {
-      logError(e, `Failed to update CPU usage.`);
+      logError(e, `Failed to update CPU Label.`);
     }
   }
 
   // Function to update Memory usage
   _update_ram() {
     try {
-      const meminfo_file = Gio.File.new_for_path('/proc/meminfo');
-      const [, contents] = meminfo_file.load_contents(null);
-      const text_decoder = new TextDecoder("utf-8");
-      const content_string = text_decoder.decode(contents);
-      const content_lines = content_string.split('\n');
+      let content_lines = this._file_open('/proc/meminfo');
 
       let mem_total = null;
       let mem_available = null;
@@ -256,7 +263,6 @@ export class RezMon extends Button {
         }
       });
 
-      // Update RAM usage label
       if (mem_total !== null && mem_available !== null) {
         mem_used = mem_total - mem_available;
       }
@@ -279,11 +285,7 @@ export class RezMon extends Button {
           let textDecoder = new TextDecoder("utf-8");
           activeInterfaceName = textDecoder.decode(new Uint8Array(output)).trim();
       }
-      const netdev_file = Gio.File.new_for_path('/proc/net/dev');
-      const [, contents] = netdev_file.load_contents(null);
-      const text_decoder = new TextDecoder("utf-8");
-      const content_string = text_decoder.decode(contents);
-      const content_lines = content_string.split('\n');
+      let content_lines = this._file_open('/proc/net/dev');
 
       let interface_name = activeInterfaceName;
       let tx_bytes = 0;
