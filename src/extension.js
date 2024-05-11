@@ -219,16 +219,16 @@ export class RezMon extends Button {
       let cpu_temp = 0;
 
       // CPU TEMP - Execute 'sensors' command to get CPU temperature
-      // let [success, stdout, stderr] = GLib.spawn_command_line_sync('sensors');
-      // if (success) {
-      //   const output = stdout.toString();
+      let [success, stdout, stderr] = GLib.spawn_command_line_sync('sensors');
+      if (success) {
+        const output = stdout.toString();
 
-      //   // Define a regular expression pattern to match the CPU temperature
-      //   const pattern = /Tctl:\s+\+([\d.]+)°C/;
-      //   const match = pattern.exec(output);
+        // Define a regular expression pattern to match the CPU temperature
+        const pattern = /Tctl:\s+\+([\d.]+)°C/;
+        const match = pattern.exec(output);
         
-      //   cpu_temp = parseInt(match[1]);
-      // }
+        cpu_temp = parseInt(match[1]);
+      }
 
       // Set Label
       this.labels[0].set_text(`CPU( ${cpu_usage} % | ${ghz_value.toFixed(2)} GHz | ${cpu_temp} ℃ )`);
