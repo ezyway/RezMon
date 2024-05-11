@@ -304,11 +304,35 @@ export class RezMon extends Button {
       // Calculate network traffic speed in bytes per second
       const current_time = Date.now() / 1000; // Convert milliseconds to seconds
       const time_difference = current_time - this.prev_time;
-      const tx_speed = ((tx_bytes - this.prev_tx_bytes) / time_difference) / (1024 * 1024);
-      const rx_speed = ((rx_bytes - this.prev_rx_bytes) / time_difference) / (1024 * 1024);
+      // const tx_speed = ((tx_bytes - this.prev_tx_bytes) / time_difference) / (1024 * 1024);
+      // const rx_speed = ((rx_bytes - this.prev_rx_bytes) / time_difference) / (1024 * 1024);
+
+      let tx_speed = ((tx_bytes - this.prev_tx_bytes) / time_difference);
+      let rx_speed = ((rx_bytes - this.prev_rx_bytes) / time_difference);
+
+      const units = ['B/s', 'KB/s', 'MB/s', 'GB/s', 'TB/s'];
+      let tx_unit_index = 0;
+      let rx_unit_index = 0;
+
+      while (tx_speed > 1024 || rx_speed > 1024) {
+        if(tx_speed > 1024){
+          tx_speed = tx_speed / 1024;
+          tx_unit_index++;
+        }
+        if(rx_speed > 1024){
+          rx_speed = rx_speed / 1024;
+          rx_unit_index++;
+        }
+      }
+
+
 
       // Update labels with network traffic speed
-      this.labels[2].set_text(`NET( ￬ ${rx_speed.toFixed(1)} MB/s | ￪ ${tx_speed.toFixed(1)} MB/s )`);
+      // this.labels[2].set_text(`NET( ￬ ${rx_speed.toFixed(1)} MB/s | ￪ ${tx_speed.toFixed(1)} MB/s )`);
+      const rx_label = `${rx_speed.toFixed(0)} ${units[rx_unit_index]}`;
+      const tx_label = `${tx_speed.toFixed(0)} ${units[tx_unit_index]}`;
+
+      this.labels[2].set_text(`NET( ￬ ${rx_label} | ￪ ${tx_label} )`);
 
       // Store current values for the next calculation
       this.prev_time = current_time;
