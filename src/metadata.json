@@ -1,8 +1,8 @@
 {
-  "name": "RezMon",
-  "description": "Shows info about CPU, RAM and NET on Top Bar",
+  "name": "Resource Monitor",
+  "description": "Shows info about CPU ( useage, clock, temp ), RAM (free, used) and NET ( download, upload) on GNOME SHELL System Tray (Top Bar)",
   "uuid": "rezmon@azz.lol",
   "shell-version": [ "46", "45" ],
   "url": "https://github.com/ezyway/RezMon",
-  "version" : 5
+  "version" : 6
 }
