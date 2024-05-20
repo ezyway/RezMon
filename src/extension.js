@@ -6,6 +6,7 @@
  * NET(Download, Upload) usage on the top bar.
  * Version: 6
  * GNOME Shell Version: 46 (Tested) 
+ * GitHub: https://github.com/ezyway/RezMon
  * 
  * Credits: Michael Knap - System Monitor Tray Indicator - https://github.com/michaelknap/gnome-system-monitor-indicator
  * 
