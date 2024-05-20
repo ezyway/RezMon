@@ -2,7 +2,7 @@
   "name": "RezMon",
   "description": "Shows info about CPU, RAM and NET on Top Bar",
   "uuid": "rezmon@azz.lol",
-  "shell-version": [ "46" ],
+  "shell-version": [ "46", "45" ],
   "url": "https://github.com/ezyway/RezMon",
-  "version" : 3
+  "version" : 5
 }
