@@ -1,6 +1,4 @@
 /*
- * 
- * 
  * Author: Azzlol
  * Description: Displays CPU(use percentage, average clock speed, temp), RAM(Used, Free),
  * NET(Download, Upload) usage on the top bar.
@@ -73,24 +71,15 @@ export class RezMon extends Button {
 
     // Create menu items
     for (let i = 0; i < this.feature.length; i++) {
-      let item = new PopupMenuItem(this.feature[i], {
-        can_focus: true,
-        hover: true,
-        reactive: true,
-      });
+      let item = new PopupMenuItem(this.feature[i], { can_focus: true, hover: true, reactive: true, });
       
       item.connect('activate', () => {
-        log("Click Event on Popup Menu: ", this.feature[i]);
         this.feature_activations[i] = !this.feature_activations[i]; // Toggle feature activation
-        // Set visibility of labels based on feature activations
-        this.labels.forEach((label, index) => {
-          label.visible = this.feature_activations[index];
-        });
+        this.labels.forEach((label, index) => { label.visible = this.feature_activations[index]; }); // Visibility toggle
       });
       this.menu.addMenuItem(item);
     }
   }
-
 
   // Function to update all metrics (CPU, RAM, NET)
   _update_metrics() {
@@ -146,7 +135,7 @@ export class RezMon extends Button {
     }
   }
 
-  // Function to update CPU usage
+  // Function to update CPU Label
   _update_cpu() {
     let cpu_usage = "0";
     let ghz_value = 0.0;
@@ -166,9 +155,6 @@ export class RezMon extends Button {
 
         if (fields[0] === 'cpu') {
           const nums = fields.slice(1).map(Number);
-          // const user = nums[0];
-          // const nice = nums[1];
-          // const system = nums[2];
           const idle = nums[3];
           const iowait = nums[4] || 0; // Include iowait, defaulting to 0 if not present
 
@@ -220,6 +206,7 @@ export class RezMon extends Button {
 
       // Average GHz of all core clocks
       ghz_value = (mhz_count / cpu_count)/1000;
+
     } catch (e){
       logError(`CPU GHZ UPDATE FAILED: `, e);
     }
@@ -242,11 +229,11 @@ export class RezMon extends Button {
       logError(`CPU TEMPERATURE UPDATE FAILED: `, e);
     }
 
-    // Set Label
+    // Set Label - CPU
     this.labels[0].set_text(`CPU( ${cpu_usage} % | ${ghz_value.toFixed(2)} GHz | ${cpu_temp} ℃ )`);
   }
 
-  // Function to update Memory usage
+  // Function to update RAM Stats
   _update_ram() {
     try {
       let content_lines = this._file_open('/proc/meminfo');
@@ -287,14 +274,15 @@ export class RezMon extends Button {
   
   _update_net() {
     try {
+      // Get Active Interface name for parsing
       let activeInterfaceName = '';
       let [result, output, standardError, exitStatus] = GLib.spawn_command_line_sync('bash -c "ip route get 1 | awk \'{print $5; exit}\'"');
       if (result) {
           let textDecoder = new TextDecoder("utf-8");
           activeInterfaceName = textDecoder.decode(new Uint8Array(output)).trim();
       }
-      let content_lines = this._file_open('/proc/net/dev');
 
+      let content_lines = this._file_open('/proc/net/dev');
       let interface_name = activeInterfaceName;
       let tx_bytes = 0;
       let rx_bytes = 0;
@@ -312,8 +300,6 @@ export class RezMon extends Button {
       // Calculate network traffic speed in bytes per second
       const current_time = Date.now() / 1000; // Convert milliseconds to seconds
       const time_difference = current_time - this.prev_time;
-      // const tx_speed = ((tx_bytes - this.prev_tx_bytes) / time_difference) / (1024 * 1024);
-      // const rx_speed = ((rx_bytes - this.prev_rx_bytes) / time_difference) / (1024 * 1024);
 
       let tx_speed = ((tx_bytes - this.prev_tx_bytes) / time_difference);
       let rx_speed = ((rx_bytes - this.prev_rx_bytes) / time_difference);
@@ -333,12 +319,13 @@ export class RezMon extends Button {
         }
       }
 
-
-
       // Update labels with network traffic speed
-      // this.labels[2].set_text(`NET( ￬ ${rx_speed.toFixed(1)} MB/s | ￪ ${tx_speed.toFixed(1)} MB/s )`);
-      const rx_label = `${rx_speed.toFixed(0)} ${units[rx_unit_index]}`;
-      const tx_label = `${tx_speed.toFixed(0)} ${units[tx_unit_index]}`;
+      let rx_label;
+      let tx_label;
+
+      if(rx_unit_index == 0){ rx_label = '<1 KB/s'; } else { rx_label = `${rx_speed.toFixed(0)} ${units[rx_unit_index]}`; }
+      if(tx_unit_index == 0){ tx_label = '<1 KB/s'; } else { tx_label = `${tx_speed.toFixed(0)} ${units[tx_unit_index]}`; }
+
 
       this.labels[2].set_text(`NET( ￬ ${rx_label} | ￪ ${tx_label} )`);
 
