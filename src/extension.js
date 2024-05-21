@@ -2,12 +2,12 @@
  * Author: Azzlol
  * Description: Displays CPU(use percentage, average clock speed, temp), RAM(Used, Free),
  * NET(Download, Upload) usage on the top bar.
- * Version: 6
- * GNOME Shell Version: 46 (Tested) 
+ * Version: 8
+ * GNOME Shell Tested: 46 
+ * GNOME Shell Supported: 45, 46
  * GitHub: https://github.com/ezyway/RezMon
  * 
  * Credits: Michael Knap - System Monitor Tray Indicator - https://github.com/michaelknap/gnome-system-monitor-indicator
- * 
  * License: MIT License
  */
 
@@ -18,7 +18,7 @@ import Gio from 'gi://Gio';
 import St from 'gi://St';
 import Clutter from 'gi://Clutter';
 import { Button } from 'resource:///org/gnome/shell/ui/panelMenu.js';
-import { PopupMenuItem } from 'resource:///org/gnome/shell/ui/popupMenu.js';
+import { PopupMenuItem, PopupSubMenuMenuItem } from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import GObject from 'gi://GObject';
 import { panel } from 'resource:///org/gnome/shell/ui/main.js';
 
@@ -41,9 +41,10 @@ export class RezMon extends Button {
 
     //Pre Set Values ---------------------------------------------------------------------------------------------
 
-    this.feature = ['CPU', 'RAM', 'NET'];
+    this.feature = ['CPU', 'RAM', 'NET', 'Change Brackets'];
+    this.brackets = [ ['(',')'], ['[',']'], ['{','}'] ];
+    this.bracket_index = 0;
     this.feature_activations = [1, 1, 1];
-    this.feature_file_location = ['/proc/stat', '/proc/meminfo', '/proc/net/dev'];
 
     // Initialize previous CPU values
     this.prev_idle = 0;
@@ -52,7 +53,11 @@ export class RezMon extends Button {
     // Initialize previous values for network traffic speed calculation
     this.prev_time = Date.now() / 1000; // Convert milliseconds to seconds
     this.prev_tx_bytes = 0;
-    this.prev_rx_bytes = 0;    
+    this.prev_rx_bytes = 0;
+
+    // Init brackets
+    this.b_open = '(';
+    this.b_close = ')';
 
     //Pre Set Values ---------------------------------------------------------------------------------------------
 
@@ -66,26 +71,43 @@ export class RezMon extends Button {
 
   // Renders popup menu
   _render_menu(){
-    log('Rendering Popup Menu');
+    // Remove previous menu entries
     this.menu.removeAll();
-
-    // Create menu items
-    for (let i = 0; i < this.feature.length; i++) {
-      let item = new PopupMenuItem(this.feature[i], { can_focus: true, hover: true, reactive: true, });
-      
+  
+    // Create main menu items
+    for (let i = 0; i < this.feature.length - 1; i++) { // Exclude the last feature "Change Brackets"
+      let item = new PopupMenuItem(this.feature[i], { can_focus: true, hover: true, reactive: true });
+  
       item.connect('activate', () => {
+        // Toggle features for CPU, RAM, or NET
         this.feature_activations[i] = !this.feature_activations[i]; // Toggle feature activation
-        this.labels.forEach((label, index) => { label.visible = this.feature_activations[index]; }); // Visibility toggle
+        this.labels[i].visible = this.feature_activations[i]; // Visibility toggle
       });
+  
       this.menu.addMenuItem(item);
     }
+  
+    // Create submenu for customization
+    let customizationSubMenu = new PopupSubMenuMenuItem("Customization");
+  
+    // Create menu item for changing brackets under customization submenu
+    let changeBracketsItem = new PopupMenuItem("Change Brackets", { can_focus: true, hover: true, reactive: true });
+    changeBracketsItem.connect('activate', () => {
+      // Brackets Logic
+      this.bracket_index = (this.bracket_index + 1) % this.brackets.length; // Cycle through bracket options
+      this.b_open = this.brackets[this.bracket_index][0];
+      this.b_close = this.brackets[this.bracket_index][1];
+    });
+  
+    // Add the "Change Brackets" item to the customization submenu
+    customizationSubMenu.menu.addMenuItem(changeBracketsItem);
+  
+    // Add the customization submenu to the main menu
+    this.menu.addMenuItem(customizationSubMenu);
   }
 
   // Function to update all metrics (CPU, RAM, NET)
   _update_metrics() {
-    const priority = GLib.PRIORITY_DEFAULT_IDLE;
-    const refresh_time = 1; // Time in seconds
-
     for(let i = 0; i < this.feature_activations.length; i++){
       if(this.feature_activations[i] == 1){
         switch(i) {
@@ -106,14 +128,15 @@ export class RezMon extends Button {
         }
       }
     }
-    
 
     // Remove existing timeout if any
     if (this._timeout) {
       GLib.source_remove(this._timeout);
     }
-
+    
     // Set a timeout to refresh metrics
+    const priority = GLib.PRIORITY_DEFAULT_IDLE;
+    const refresh_time = 1; // Time in seconds
     this._timeout = GLib.timeout_add_seconds(priority, refresh_time, () => {
       this._update_metrics();
       return true;
@@ -131,7 +154,7 @@ export class RezMon extends Button {
       return content_lines;
     }
     catch (e){
-      logError(e, `Could not process: `, file_path);
+      logError(`PROCESSING ERROR IN FILE: ${file_path} \n ${e}`);
     }
   }
 
@@ -230,7 +253,8 @@ export class RezMon extends Button {
     }
 
     // Set Label - CPU
-    this.labels[0].set_text(`CPU( ${cpu_usage} % | ${ghz_value.toFixed(2)} GHz | ${cpu_temp} ℃ )`);
+    this.labels[0].set_text(`CPU${this.b_open}${cpu_usage} % | ${ghz_value.toFixed(2)} GHz | ${cpu_temp} ℃${this.b_close}`);
+
   }
 
   // Function to update RAM Stats
@@ -265,7 +289,7 @@ export class RezMon extends Button {
       mem_used = mem_used / (1024 * 1024);
       mem_available = mem_available / (1024 * 1024);
 
-      this.labels[1].set_text(`RAM( ${mem_used.toFixed(1)} GB | ${mem_available.toFixed(1)} GB )`);
+      this.labels[1].set_text(`RAM${this.b_open}${mem_used.toFixed(1)} | ${mem_available.toFixed(1)}${this.b_close}GB `);
       
     } catch (e) {
       logError(e, `Failed to update memory usage.`);
@@ -326,8 +350,7 @@ export class RezMon extends Button {
       if(rx_unit_index == 0){ rx_label = '<1 KB/s'; } else { rx_label = `${rx_speed.toFixed(0)} ${units[rx_unit_index]}`; }
       if(tx_unit_index == 0){ tx_label = '<1 KB/s'; } else { tx_label = `${tx_speed.toFixed(0)} ${units[tx_unit_index]}`; }
 
-
-      this.labels[2].set_text(`NET( ￬ ${rx_label} | ￪ ${tx_label} )`);
+      this.labels[2].set_text(`NET${this.b_open}￬ ${rx_label} | ￪ ${tx_label}${this.b_close}`);
 
       // Store current values for the next calculation
       this.prev_time = current_time;
