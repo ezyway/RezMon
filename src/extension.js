@@ -2,7 +2,7 @@
  * Author: Azzlol
  * Description: Displays CPU(use percentage, average clock speed, temp), RAM(Used, Free),
  * NET(Download, Upload) usage on the top bar.
- * Version: 8
+ * Version: 9
  * GNOME Shell Tested: 46 
  * GNOME Shell Supported: 45, 46
  * GitHub: https://github.com/ezyway/RezMon
@@ -17,9 +17,10 @@ import GLib from 'gi://GLib';
 import Gio from 'gi://Gio';
 import St from 'gi://St';
 import Clutter from 'gi://Clutter';
+import GObject from 'gi://GObject';
+
 import { Button } from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import { PopupMenuItem, PopupSubMenuMenuItem } from 'resource:///org/gnome/shell/ui/popupMenu.js';
-import GObject from 'gi://GObject';
 import { panel } from 'resource:///org/gnome/shell/ui/main.js';
 
 
@@ -46,6 +47,15 @@ export class RezMon extends Button {
     this.bracket_index = 0;
     this.feature_activations = [1, 1, 1];
 
+    // Get Settings
+    
+    this._settings = this._settings = new Gio.Settings({ schema: 'org.gnome.shell.extensions.rezmon' });
+
+    // Get Bracket Index from settings
+    this.bracket_index = this._settings.get_int('bracket-index');
+    this.b_open = this.brackets[this.bracket_index][0];
+    this.b_close = this.brackets[this.bracket_index][1];
+
     // Initialize previous CPU values
     this.prev_idle = 0;
     this.prev_total = 0;
@@ -54,10 +64,6 @@ export class RezMon extends Button {
     this.prev_time = Date.now() / 1000; // Convert milliseconds to seconds
     this.prev_tx_bytes = 0;
     this.prev_rx_bytes = 0;
-
-    // Init brackets
-    this.b_open = '(';
-    this.b_close = ')';
 
     //Pre Set Values ---------------------------------------------------------------------------------------------
 
@@ -77,19 +83,17 @@ export class RezMon extends Button {
     // Create main menu items
     for (let i = 0; i < this.feature.length - 1; i++) { // Exclude the last feature "Change Brackets"
       let item = new PopupMenuItem(this.feature[i], { can_focus: true, hover: true, reactive: true });
-  
       item.connect('activate', () => {
         // Toggle features for CPU, RAM, or NET
         this.feature_activations[i] = !this.feature_activations[i]; // Toggle feature activation
         this.labels[i].visible = this.feature_activations[i]; // Visibility toggle
       });
-  
       this.menu.addMenuItem(item);
     }
   
     // Create submenu for customization
     let customizationSubMenu = new PopupSubMenuMenuItem("Customization");
-  
+    
     // Create menu item for changing brackets under customization submenu
     let changeBracketsItem = new PopupMenuItem("Change Brackets", { can_focus: true, hover: true, reactive: true });
     changeBracketsItem.connect('activate', () => {
@@ -97,6 +101,7 @@ export class RezMon extends Button {
       this.bracket_index = (this.bracket_index + 1) % this.brackets.length; // Cycle through bracket options
       this.b_open = this.brackets[this.bracket_index][0];
       this.b_close = this.brackets[this.bracket_index][1];
+      this._settings.set_int('bracket-index', this.bracket_index); // Save the current bracket index
     });
   
     // Add the "Change Brackets" item to the customization submenu
