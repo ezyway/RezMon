@@ -1,10 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <schemalist>
   <schema id="org.gnome.shell.extensions.rezmon" path="/org/gnome/shell/extensions/rezmon/">
-    <key name="bracket-index" type="i">
-      <default>0</default>
-      <summary>Bracket Index</summary>
-      <description>Stores the index of the current bracket style.</description>
+    <key name="b-open" type="s">
+      <default>"("</default>
+      <summary>Bracket Open</summary>
+    </key>
+    <key name="b-close" type="s">
+      <default>")"</default>
+      <summary>Bracket Close</summary>
     </key>
   </schema>
 </schemalist>
