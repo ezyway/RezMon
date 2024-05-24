@@ -1,7 +1,7 @@
 ## Overview
 This is a minimalist system monitor extension for GNOME Shell. It displays CPU( Useage | Average Clock | Temperature ), RAM (Free | Used) and NET ( Download | Upload ) GNOME Shell top bar. 
 
-![Screenshot](./screenshots/Default%20View.png)
+![Screenshot](./screenshots/Full%20View.png)
 
 ## Compatibility
 
