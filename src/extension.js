@@ -2,7 +2,7 @@
  * Author: Azzlol
  * Description: Displays CPU(use percentage, average clock speed, temp), RAM(Used, Free),
  * NET(Download, Upload) usage on the top bar.
- * Version: 9
+ * Version: 10
  * GNOME Shell Tested: 46 
  * GNOME Shell Supported: 45, 46
  * GitHub: https://github.com/ezyway/RezMon
@@ -23,7 +23,6 @@ import { Button } from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import { PopupMenuItem, PopupSubMenuMenuItem } from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import { panel } from 'resource:///org/gnome/shell/ui/main.js';
 
-
 // Define the main class for the system monitor indicator
 export class RezMon extends Button {
 
@@ -39,17 +38,22 @@ export class RezMon extends Button {
     this.labels.push(new St.Label({ text: "-NET-", y_align: Clutter.ActorAlign.CENTER, style: 'margin-right: 12px;' }));
     this.labels.forEach(label => this.box.add_child(label)); // Add labels to the box
     this.add_child(this.box);
+    
+    this._init_values();
 
-    //Pre Set Values ---------------------------------------------------------------------------------------------
+    this._update_metrics();
 
+    this._render_menu();
+  }
+
+  _init_values(){
     this.feature = ['CPU', 'RAM', 'NET', 'Change Brackets'];
     this.brackets = [ ['(',')'], ['[',']'], ['{','}'] ];
     this.bracket_index = 0;
     this.feature_activations = [1, 1, 1];
 
-    // Get Settings
-    
-    this._settings = this._settings = new Gio.Settings({ schema: 'org.gnome.shell.extensions.rezmon' });
+    // Settings (Stored Values)
+    this._settings = new Gio.Settings({ schema: 'org.gnome.shell.extensions.rezmon' });
 
     // Get Bracket Index from settings
     this.bracket_index = this._settings.get_int('bracket-index');
@@ -64,38 +68,27 @@ export class RezMon extends Button {
     this.prev_time = Date.now() / 1000; // Convert milliseconds to seconds
     this.prev_tx_bytes = 0;
     this.prev_rx_bytes = 0;
-
-    //Pre Set Values ---------------------------------------------------------------------------------------------
-
-    // Updating metrics
-    this._update_metrics();
-
-    // Menu Stuff
-    this._render_menu();
-    
   }
 
-  // Renders popup menu
   _render_menu(){
     // Remove previous menu entries
     this.menu.removeAll();
   
     // Create main menu items
     for (let i = 0; i < this.feature.length - 1; i++) { // Exclude the last feature "Change Brackets"
-      let item = new PopupMenuItem(this.feature[i], { can_focus: true, hover: true, reactive: true });
+      const item = new PopupMenuItem(this.feature[i], { can_focus: true, hover: true, reactive: true });
       item.connect('activate', () => {
-        // Toggle features for CPU, RAM, or NET
-        this.feature_activations[i] = !this.feature_activations[i]; // Toggle feature activation
+        this.feature_activations[i] = !this.feature_activations[i]; // Toggle feature activation (CPU, RAM, NET)
         this.labels[i].visible = this.feature_activations[i]; // Visibility toggle
       });
       this.menu.addMenuItem(item);
     }
   
-    // Create submenu for customization
-    let customizationSubMenu = new PopupSubMenuMenuItem("Customization");
-    
-    // Create menu item for changing brackets under customization submenu
-    let changeBracketsItem = new PopupMenuItem("Change Brackets", { can_focus: true, hover: true, reactive: true });
+    // Create submenu for customization and create menu item
+    const customizationSubMenu = new PopupSubMenuMenuItem("Customization");
+    const changeBracketsItem = new PopupMenuItem("Change Brackets", { can_focus: true, hover: true, reactive: true });
+
+    // Click Event
     changeBracketsItem.connect('activate', () => {
       // Brackets Logic
       this.bracket_index = (this.bracket_index + 1) % this.brackets.length; // Cycle through bracket options
@@ -104,10 +97,8 @@ export class RezMon extends Button {
       this._settings.set_int('bracket-index', this.bracket_index); // Save the current bracket index
     });
   
-    // Add the "Change Brackets" item to the customization submenu
+    // Add the "Change Brackets" item to the customization submenu and customization submenu to the main menu
     customizationSubMenu.menu.addMenuItem(changeBracketsItem);
-  
-    // Add the customization submenu to the main menu
     this.menu.addMenuItem(customizationSubMenu);
   }
 
@@ -155,12 +146,9 @@ export class RezMon extends Button {
       const [, content] = file.load_contents(null);
       const text_decoder = new TextDecoder("utf-8");
       const content_str = text_decoder.decode(content);
-      const content_lines = content_str.split('\n');
-      return content_lines;
+      return content_str.split('\n');
     }
-    catch (e){
-      logError(`PROCESSING ERROR IN FILE: ${file_path} \n ${e}`);
-    }
+    catch (e){ console.error(`PROCESSING ERROR IN FILE: ${file_path} \n ${e}`); }
   }
 
   // Function to update CPU Label
@@ -178,16 +166,15 @@ export class RezMon extends Button {
       let current_cpu_total = 0;
       let current_cpu_usage = 0;
 
-      for (let i = 0; i < content_lines.length; i++) {
-        const fields = content_lines[i].trim().split(/\s+/);
+      for (const content_line of content_lines) {
+        const fields = content_line.trim().split(/\s+/);
 
         if (fields[0] === 'cpu') {
           const nums = fields.slice(1).map(Number);
           const idle = nums[3];
           const iowait = nums[4] || 0; // Include iowait, defaulting to 0 if not present
 
-          current_cpu_total = nums.slice(0, 4).reduce((a, b) => a + b, 0) +
-            iowait;
+          current_cpu_total = nums.slice(0, 4).reduce((a, b) => a + b, 0) + iowait;
           current_cpu_used = current_cpu_total - idle - iowait;
 
           // Ensure previous values are set on the first run
@@ -210,9 +197,7 @@ export class RezMon extends Button {
           break; // Break after processing the first 'cpu' line
         }
       }
-    } catch (e){
-      logError(`CPU USAGE UPDATE FAILED: `, e);
-    }
+    } catch (e){ console.error(`CPU USAGE UPDATE FAILED: `, e); }
 
     // CPU GHz -----------------------------------------------------------------------
     try{
@@ -222,28 +207,26 @@ export class RezMon extends Button {
       let mhz_count = 0;
       let cpu_count = 0;
 
-      for (let i = 0; i < content_lines.length; i++) {
-        const fields = content_lines[i].trim().split(/\s+/);
+      for (const content_line of content_lines) {
+        const fields = content_line.trim().split(/\s+/);
 
         // check if element 1 and 2 is 'cpu' and 'MHz' in field = "cpu MHz : 3000.000"
         if (fields[0] === 'cpu' && fields[1] === 'MHz') {
           mhz_count += parseInt(fields[3]);
-          cpu_count += 1;
+          cpu_count++;
         }
       }
 
       // Average GHz of all core clocks
       ghz_value = (mhz_count / cpu_count)/1000;
 
-    } catch (e){
-      logError(`CPU GHZ UPDATE FAILED: `, e);
-    }
+    } catch (e){ console.error(`CPU GHZ UPDATE FAILED: `, e); }
 
 
     // CPU Temp -----------------------------------------------------------------------
     try{
       // CPU TEMP - Execute 'sensors' command to get CPU temperature
-      let [success, stdout, stderr] = GLib.spawn_command_line_sync('sensors');
+      let [success, stdout,] = GLib.spawn_command_line_sync('sensors');
       if (success) {
         const output = stdout.toString();
 
@@ -253,9 +236,7 @@ export class RezMon extends Button {
         
         cpu_temp = parseInt(match[1]);
       }
-    } catch (e){
-      logError(`CPU TEMPERATURE UPDATE FAILED: `, e);
-    }
+    } catch (e){ console.error(`CPU TEMPERATURE UPDATE FAILED: `, e); }
 
     // Set Label - CPU
     this.labels[0].set_text(`CPU${this.b_open}${cpu_usage} % | ${ghz_value.toFixed(2)} GHz | ${cpu_temp} ℃${this.b_close}`);
@@ -265,7 +246,7 @@ export class RezMon extends Button {
   // Function to update RAM Stats
   _update_ram() {
     try {
-      let content_lines = this._file_open('/proc/meminfo');
+      const content_lines = this._file_open('/proc/meminfo');
 
       let mem_total = null;
       let mem_available = null;
@@ -291,28 +272,26 @@ export class RezMon extends Button {
         mem_used = mem_total - mem_available;
       }
       
-      mem_used = mem_used / (1024 * 1024);
-      mem_available = mem_available / (1024 * 1024);
+      mem_used /= 1024 * 1024;
+      mem_available /= 1024 * 1024;
 
       this.labels[1].set_text(`RAM${this.b_open}${mem_used.toFixed(1)} | ${mem_available.toFixed(1)}${this.b_close}GB `);
       
-    } catch (e) {
-      logError(e, `Failed to update memory usage.`);
-    }
+    } catch (e) { console.error(e, `Failed to update memory usage.`); }
   }
   
   _update_net() {
     try {
       // Get Active Interface name for parsing
       let activeInterfaceName = '';
-      let [result, output, standardError, exitStatus] = GLib.spawn_command_line_sync('bash -c "ip route get 1 | awk \'{print $5; exit}\'"');
+      let [result, output,] = GLib.spawn_command_line_sync('bash -c "ip route get 1 | awk \'{print $5; exit}\'"');
       if (result) {
-          let textDecoder = new TextDecoder("utf-8");
+          const textDecoder = new TextDecoder("utf-8");
           activeInterfaceName = textDecoder.decode(new Uint8Array(output)).trim();
       }
 
-      let content_lines = this._file_open('/proc/net/dev');
-      let interface_name = activeInterfaceName;
+      const content_lines = this._file_open('/proc/net/dev');
+      const interface_name = activeInterfaceName;
       let tx_bytes = 0;
       let rx_bytes = 0;
 
@@ -339,11 +318,11 @@ export class RezMon extends Button {
 
       while (tx_speed > 1024 || rx_speed > 1024) {
         if(tx_speed > 1024){
-          tx_speed = tx_speed / 1024;
+          tx_speed /= 1024;
           tx_unit_index++;
         }
         if(rx_speed > 1024){
-          rx_speed = rx_speed / 1024;
+          rx_speed /= 1024;
           rx_unit_index++;
         }
       }
@@ -352,8 +331,8 @@ export class RezMon extends Button {
       let rx_label;
       let tx_label;
 
-      if(rx_unit_index == 0){ rx_label = '<1 KB/s'; } else { rx_label = `${rx_speed.toFixed(0)} ${units[rx_unit_index]}`; }
-      if(tx_unit_index == 0){ tx_label = '<1 KB/s'; } else { tx_label = `${tx_speed.toFixed(0)} ${units[tx_unit_index]}`; }
+      rx_label = rx_unit_index == 0 ? '<1 KB/s' : `${rx_speed.toFixed(0)} ${units[rx_unit_index]}`;
+      tx_label = tx_unit_index == 0 ? '<1 KB/s' : `${tx_speed.toFixed(0)} ${units[tx_unit_index]}`;
 
       this.labels[2].set_text(`NET${this.b_open}￬ ${rx_label} | ￪ ${tx_label}${this.b_close}`);
 
@@ -361,9 +340,7 @@ export class RezMon extends Button {
       this.prev_time = current_time;
       this.prev_tx_bytes = tx_bytes;
       this.prev_rx_bytes = rx_bytes;
-    } catch (e) {
-        logError(e, `Failed to update network traffic speed.`);
-    }
+    } catch (e) { console.error(e, `Failed to update network traffic speed.`); }
   }
 
   // Stop updates
