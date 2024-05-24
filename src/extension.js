@@ -2,7 +2,7 @@
  * Author: Azzlol
  * Description: Displays CPU(use percentage, average clock speed, temp), RAM(Used, Free),
  * NET(Download, Upload) usage on the top bar.
- * Version: 10
+ * Version: 11
  * GNOME Shell Tested: 46 
  * GNOME Shell Supported: 45, 46
  * GitHub: https://github.com/ezyway/RezMon
@@ -56,9 +56,8 @@ export class RezMon extends Button {
     this._settings = new Gio.Settings({ schema: 'org.gnome.shell.extensions.rezmon' });
 
     // Get Bracket Index from settings
-    this.bracket_index = this._settings.get_int('bracket-index');
-    this.b_open = this.brackets[this.bracket_index][0];
-    this.b_close = this.brackets[this.bracket_index][1];
+    this.b_open = this._settings.get_string("b-open");
+    this.b_close = this._settings.get_string("b-close");
 
     // Initialize previous CPU values
     this.prev_idle = 0;
@@ -86,19 +85,39 @@ export class RezMon extends Button {
   
     // Create submenu for customization and create menu item
     const customizationSubMenu = new PopupSubMenuMenuItem("Customization");
-    const changeBracketsItem = new PopupMenuItem("Change Brackets", { can_focus: true, hover: true, reactive: true });
 
-    // Click Event
-    changeBracketsItem.connect('activate', () => {
-      // Brackets Logic
+    // Store Bracket Function
+    function set_brackets() {
+      this._settings.set_string('b-open', this.b_open); // Save b_open
+      this._settings.set_string('b-close', this.b_close); // Save b_close
+    }
+
+    // Bracket Change Stuff
+    const change_brackets = new PopupMenuItem("Change Brackets", { can_focus: true, hover: true, reactive: true });
+    change_brackets.connect('activate', () => {
       this.bracket_index = (this.bracket_index + 1) % this.brackets.length; // Cycle through bracket options
       this.b_open = this.brackets[this.bracket_index][0];
       this.b_close = this.brackets[this.bracket_index][1];
-      this._settings.set_int('bracket-index', this.bracket_index); // Save the current bracket index
-    });
-  
-    // Add the "Change Brackets" item to the customization submenu and customization submenu to the main menu
-    customizationSubMenu.menu.addMenuItem(changeBracketsItem);
+      set_brackets.call(this); });
+    customizationSubMenu.menu.addMenuItem(change_brackets);
+
+    // Bracket Padding Increase
+    const add_padding = new PopupMenuItem("Add Padding", { can_focus: true, hover: true, reactive: true });
+    add_padding.connect('activate', () => { // Add WhiteSpace before and after bracket
+      this.b_open = ` ${this.b_open} `;
+      this.b_close = ` ${this.b_close} `;
+      set_brackets.call(this); });
+    customizationSubMenu.menu.addMenuItem(add_padding);
+
+    // Bracket Padding Decrease
+    const rem_padding = new PopupMenuItem("Remove Padding", { can_focus: true, hover: true, reactive: true });
+    rem_padding.connect('activate', () => { // Checks if <WHITESPACE> is starting then slice both sides by 1
+      if(this.b_open[0] == ' '){ this.b_open = this.b_open.slice(1, -1); }
+      if(this.b_close[0] == ' '){ this.b_close = this.b_close.slice(1, -1); }
+      set_brackets.call(this); });
+    customizationSubMenu.menu.addMenuItem(rem_padding);
+
+    // Add Customization submenu to the main menu
     this.menu.addMenuItem(customizationSubMenu);
   }
 
