@@ -9,5 +9,9 @@
       <default>")"</default>
       <summary>Bracket Close</summary>
     </key>
+    <key name="delimiter" type="s">
+      <default>"|"</default>
+      <summary>Delimiter</summary>
+    </key>
   </schema>
 </schemalist>
