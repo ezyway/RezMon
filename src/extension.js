@@ -2,7 +2,7 @@
  * Author: AZZlOl
  * Description: Displays CPU(use percentage, average clock speed, temp), RAM(Used, Free),
  * NET(Download, Upload) usage on the top bar.
- * Version: 14
+ * Version: 17
  * GNOME Shell Tested: 46 
  * GNOME Shell Supported: 45, 46
  * GitHub: https://github.com/ezyway/RezMon
@@ -165,7 +165,8 @@ export class RezMon extends Button {
       }
       output += values[i] + "    ";
     }
-    this.label.clutter_text.set_markup(output);
+    // this.label.clutter_text.set_markup(output);
+    this.label.set_text(output);
   }
 
   _file_open(file_path){
@@ -254,15 +255,10 @@ export class RezMon extends Button {
     // CPU Temp -----------------------------------------------------------------------
     try{
       // CPU TEMP - Execute 'sensors' command to get CPU temperature
-      let [success, stdout,] = GLib.spawn_command_line_sync('sensors');
+      let [success, stdout,] = GLib.spawn_command_line_sync('cat /sys/class/thermal/thermal_zone0/temp');
       if (success) {
-        const output = stdout.toString();
-
-        // Define a regular expression pattern to match the CPU temperature
-        const pattern = /Tctl:\s+\+([\d.]+)°C/;
-        const match = pattern.exec(output);
-        
-        cpu_temp = parseInt(match[1]);
+        let output = stdout.toString();
+        cpu_temp = output/1000;
       }
     } catch (e){ console.error(`CPU TEMPERATURE UPDATE FAILED: `, e); }
 
@@ -273,27 +269,8 @@ export class RezMon extends Button {
     //   turbo_frequency = parseFloat(lscpuOutput.match(/CPU max MHz:\s+(\d+\.\d+)/)[1]) / 1000;
     // } catch (e){ console.error(`TURBO FREQUENCY FETCH FAILED: `, e); }
 
-    
-    let cpu_usage_color = '#90EE90'; // Light green
-    if(cpu_usage > 90){
-      cpu_usage_color = "#FF7F7F"; // Light red
-    }else if(cpu_usage > 70){
-      cpu_usage_color = "yellow";
-    }
 
-    let temp_color = '#90EE90'; // Light green
-    if(cpu_temp > 90){
-      temp_color = "#FF7F7F"; // Light red
-    }else if(cpu_temp > 70){
-      temp_color = "yellow";
-    }
-
-    let ghz_color = '#90EE90'; // Light green
-    if (ghz_value > turbo_frequency && turbo_frequency > 0) {
-        ghz_color = "#FF7F7F"; // Light red
-    }
-
-    return `CPU${this.b_open}<span foreground="${cpu_usage_color}">${cpu_usage}</span> % ${this.delimiter} <span foreground="${ghz_color}">${ghz_value.toFixed(2)}</span> GHz ${this.delimiter} <span foreground="${temp_color}">${cpu_temp}</span> ℃${this.b_close}`;
+    return `CPU${this.b_open}${cpu_usage} % ${this.delimiter} ${ghz_value.toFixed(2)} GHz ${this.delimiter} ${cpu_temp} ℃${this.b_close}`;
   }
 
   _update_ram() {
@@ -327,7 +304,7 @@ export class RezMon extends Button {
         color = "yellow";
       }
 
-      return `RAM${this.b_open}<span foreground="${color}">${mem_used.toFixed(1)}</span> ${this.delimiter} <span foreground="${color}">${mem_available.toFixed(1)}</span>${this.b_close}GB`;
+      return `RAM${this.b_open}${mem_used.toFixed(1)} ${this.delimiter} ${mem_available.toFixed(1)}${this.b_close}GB`;
     } catch (e) { console.error(e, `Failed to update memory usage.`); }
   }
   
@@ -360,46 +337,25 @@ export class RezMon extends Button {
       let rx_speed = ((rx_bytes - this.prev_rx_bytes) / time_difference);
 
       const units = ['B/s', 'KB/s', 'MB/s', 'GB/s', 'TB/s'];
-      let tx_unit_index = 0;
-      let rx_unit_index = 0;
-      let tx_speed_mb = 0;
-      let rx_speed_mb = 0;
+      let unit_index = 0;
 
-      while (tx_speed > 1024 || rx_speed > 1024) {
-        if(tx_speed > 1024){
-          tx_speed /= 1024;
-          tx_unit_index++;
-          if(tx_unit_index == 2){ tx_speed_mb = tx_speed; }
-        }
-        if(rx_speed > 1024){
-          rx_speed /= 1024;
-          rx_unit_index++;
-          if(rx_unit_index == 2){ rx_speed_mb = rx_speed; }
-        }
+      while (tx_speed > 99 || rx_speed > 99) {
+        tx_speed /= 1024;
+        rx_speed /= 1024;
+        unit_index += 1;
       }
 
       // Update labels with network traffic speed
-      const rx_label = rx_unit_index == 0 ? '<1 KB/s' : `${rx_speed.toFixed(0)} ${units[rx_unit_index]}`;
-      const tx_label = tx_unit_index == 0 ? '<1 KB/s' : `${tx_speed.toFixed(0)} ${units[tx_unit_index]}`;
+      const rx_label = rx_speed.toFixed(0).toString().padStart(2, '0');
+      const tx_label = tx_speed.toFixed(0).toString().padStart(2, '0');
 
       // Store current values for the next calculation
       this.prev_time = current_time;
       this.prev_tx_bytes = tx_bytes;
       this.prev_rx_bytes = rx_bytes;
-
-      [result, output,] = GLib.spawn_command_line_sync(`bash -c "ethtool ${activeInterfaceName} | grep -i speed"`);
-      let max_speed = result ? new TextDecoder("utf-8").decode(new Uint8Array(output)).trim().match(/Speed: (\d+)Mb\/s/)[1] : '';
-      max_speed = parseInt(max_speed); // Convert the speed to a number
-
-      let color = '#90EE90'; // Light green
-      const percent = ( ( tx_speed_mb + rx_speed_mb ) / ( ( max_speed / 8 ) * 0.5 ) ) * 100;
-      if(percent > 80) {
-        color = "#FF7F7F"; // Light red
-      } else if(percent > 65) {
-        color = "yellow";
-      }
       
-      return `NET${this.b_open}<span foreground="${color}">￬ ${rx_label}</span> ${this.delimiter} <span foreground="${color}">￪ ${tx_label}</span> ${this.b_close}`;
+      // return `NET${this.b_open}￬ ${rx_label} ${this.delimiter} ￪ ${tx_label} ${this.b_close}`;
+      return `NET${this.b_open}￬ ${rx_label} ${this.delimiter} ￪ ${tx_label} ${this.b_close}${units[unit_index]}`;
 
     } catch (e) { console.error(e, `Failed to update network traffic speed.`); }
   }
