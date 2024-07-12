@@ -2,7 +2,7 @@
  * Author: AZZlOl
  * Description: Displays CPU(use percentage, average clock speed, temp), RAM(Used, Free),
  * NET(Download, Upload) usage on the top bar.
- * Version: 17
+ * Version: 18
  * GNOME Shell Tested: 46 
  * GNOME Shell Supported: 45, 46
  * GitHub: https://github.com/ezyway/RezMon
@@ -254,21 +254,12 @@ export class RezMon extends Button {
 
     // CPU Temp -----------------------------------------------------------------------
     try{
-      // CPU TEMP - Execute 'sensors' command to get CPU temperature
-      let [success, stdout,] = GLib.spawn_command_line_sync('cat /sys/class/thermal/thermal_zone0/temp');
-      if (success) {
-        let output = stdout.toString();
-        cpu_temp = output/1000;
-      }
+      content_lines = undefined;
+      content_lines = this._file_open('/sys/class/thermal/thermal_zone0/temp')
+      
+      let output = parseInt(stdout.toString());
+      cpu_temp = output/1000;
     } catch (e){ console.error(`CPU TEMPERATURE UPDATE FAILED: `, e); }
-
-    // Get turbo frequency -----------------------------------------------------------------------
-    // try{ 
-    //   let [result, output,] = GLib.spawn_command_line_sync('bash -c "lscpu | grep MHz"');
-    //   const lscpuOutput = result ? new TextDecoder("utf-8").decode(new Uint8Array(output)).trim() : '';
-    //   turbo_frequency = parseFloat(lscpuOutput.match(/CPU max MHz:\s+(\d+\.\d+)/)[1]) / 1000;
-    // } catch (e){ console.error(`TURBO FREQUENCY FETCH FAILED: `, e); }
-
 
     return `CPU${this.b_open}${cpu_usage} % ${this.delimiter} ${ghz_value.toFixed(2)} GHz ${this.delimiter} ${cpu_temp} ℃${this.b_close}`;
   }
