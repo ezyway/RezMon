@@ -257,7 +257,7 @@ export class RezMon extends Button {
       content_lines = undefined;
       content_lines = this._file_open('/sys/class/thermal/thermal_zone0/temp')
       
-      let output = parseInt(stdout.toString());
+      let output = parseInt(content_lines.toString());
       cpu_temp = output/1000;
     } catch (e){ console.error(`CPU TEMPERATURE UPDATE FAILED: `, e); }
 
