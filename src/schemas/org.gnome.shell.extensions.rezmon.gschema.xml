@@ -1,17 +1,38 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <schemalist>
   <schema id="org.gnome.shell.extensions.rezmon" path="/org/gnome/shell/extensions/rezmon/">
+
     <key name="b-open" type="s">
       <default>"("</default>
-      <summary>Bracket Open</summary>
     </key>
+
     <key name="b-close" type="s">
       <default>")"</default>
-      <summary>Bracket Close</summary>
     </key>
+
     <key name="delimiter" type="s">
       <default>"|"</default>
-      <summary>Delimiter</summary>
     </key>
+
+    <key name="show-cpu" type="b">
+      <default>true</default>
+    </key>
+
+    <key name="show-ram" type="b">
+      <default>true</default>
+    </key>
+
+    <key name="show-net" type="b">
+      <default>true</default>
+    </key>
+
+    <key name="update-interval" type="i">
+      <default>1</default>
+    </key>
+
+    <key name="spacing" type="s">
+      <default>"normal"</default>
+    </key>
+
   </schema>
 </schemalist>
