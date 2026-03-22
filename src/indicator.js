@@ -28,6 +28,9 @@ export class RezMonIndicator extends Button {
             style: 'margin-right: 12px;',
         });
 
+        // ✅ enable markup
+        this.label.clutter_text.set_use_markup(true);
+
         this.box.add_child(this.label);
         this.add_child(this.box);
 
@@ -71,21 +74,26 @@ export class RezMonIndicator extends Button {
 
     _reloadSettings() {
 
-        this.cpuUsage = this._settings.get_boolean('cpu-usage');
-        this.cpuClock = this._settings.get_boolean('cpu-clock');
-        this.cpuTemp  = this._settings.get_boolean('cpu-temp');
-
-        this.ramUsed = this._settings.get_boolean('ram-used');
-        this.ramFree = this._settings.get_boolean('ram-free');
-        this.ramPercent = this._settings.get_boolean('ram-percent');
-
-        this.netDown = this._settings.get_boolean('net-down');
-        this.netUp   = this._settings.get_boolean('net-up');
-
+        // visibility
         this.showCPU = this._settings.get_boolean('show-cpu');
         this.showRAM = this._settings.get_boolean('show-ram');
         this.showNET = this._settings.get_boolean('show-net');
 
+        // cpu toggles
+        this.cpuUsage = this._settings.get_boolean('cpu-usage');
+        this.cpuClock = this._settings.get_boolean('cpu-clock');
+        this.cpuTemp  = this._settings.get_boolean('cpu-temp');
+
+        // ram toggles
+        this.ramUsed = this._settings.get_boolean('ram-used');
+        this.ramFree = this._settings.get_boolean('ram-free');
+        this.ramPercent = this._settings.get_boolean('ram-percent');
+
+        // net toggles
+        this.netDown = this._settings.get_boolean('net-down');
+        this.netUp   = this._settings.get_boolean('net-up');
+
+        // appearance
         this.b_open = this._settings.get_string("b-open");
         this.b_close = this._settings.get_string("b-close");
         this.delimiter = this._settings.get_string("delimiter");
@@ -97,6 +105,10 @@ export class RezMonIndicator extends Button {
         };
 
         this.spacing = spacingMap[this._settings.get_string("spacing")] || "    ";
+
+        // thresholds
+        this.warnThreshold = this._settings.get_int('warn-threshold') || 70;
+        this.critThreshold = this._settings.get_int('crit-threshold') || 90;
 
         this.interval = this._settings.get_int("update-interval") || 1;
 
@@ -140,7 +152,28 @@ export class RezMonIndicator extends Button {
             if (formatted) parts.push(formatted);
         }
 
-        this.label.set_text(parts.join(this.spacing));
+        // this.label.set_text(parts.join(this.spacing));
+        this.label.clutter_text.set_markup(parts.join(this.spacing));
+    }
+
+    /*
+    ------------------------
+    COLOR HELPER
+    ------------------------
+    */
+
+    _getColor(value) {
+
+        if (value === null || value === undefined)
+            return null;
+
+        if (value >= this.critThreshold)
+            return "#ff5555"; // red
+
+        if (value >= this.warnThreshold)
+            return "#f1c40f"; // yellow
+
+        return null;
     }
 
     /*
@@ -155,8 +188,14 @@ export class RezMonIndicator extends Button {
 
         const values = [];
 
-        if (this.cpuUsage && cpu.usage !== null)
-            values.push(`${cpu.usage.toFixed(0)}%`);
+        if (this.cpuUsage && cpu.usage !== null) {
+            const color = this._getColor(cpu.usage);
+
+            if (color)
+                values.push(`<span foreground="${color}">${cpu.usage.toFixed(0)}%</span>`);
+            else
+                values.push(`${cpu.usage.toFixed(0)}%`);
+        }
 
         if (this.cpuClock && cpu.clock !== null)
             values.push(`${cpu.clock.toFixed(2)}GHz`);
@@ -181,8 +220,14 @@ export class RezMonIndicator extends Button {
         if (this.ramFree)
             values.push(`${ram.free.toFixed(1)}G`);
 
-        if (this.ramPercent)
-            values.push(`${ram.percent.toFixed(0)}%`);
+        if (this.ramPercent) {
+            const color = this._getColor(ram.percent);
+
+            if (color)
+                values.push(`<span foreground="${color}">${ram.percent.toFixed(0)}%</span>`);
+            else
+                values.push(`${ram.percent.toFixed(0)}%`);
+        }
 
         if (values.length === 0) return "";
 

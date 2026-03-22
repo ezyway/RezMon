@@ -28,5 +28,8 @@
     <key name="net-down" type="b"><default>true</default></key>
     <key name="net-up" type="b"><default>true</default></key>
 
+    <key name="warn-threshold" type="i"><default>70</default></key>
+
+    <key name="crit-threshold" type="i"><default>90</default></key>
   </schema>
 </schemalist>
