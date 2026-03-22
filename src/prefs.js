@@ -12,36 +12,95 @@ export default class RezMonPreferences extends ExtensionPreferences {
 
         const settings = this.getSettings('org.gnome.shell.extensions.rezmon');
 
-        const page = new Adw.PreferencesPage();
-        window.add(page);
-
         /*
         --------------------
-        GENERAL
+        GENERAL PAGE
         --------------------
         */
 
-        const generalGroup = new Adw.PreferencesGroup({
-            title: 'General'
+        const generalPage = new Adw.PreferencesPage({
+            title: 'General',
+            icon_name: 'preferences-system-symbolic'
         });
+        window.add(generalPage);
 
-        page.add(generalGroup);
+        const generalGroup = new Adw.PreferencesGroup();
+        generalPage.add(generalGroup);
 
-        generalGroup.add(this._createSwitchRow("CPU", settings, "show-cpu"));
-        generalGroup.add(this._createSwitchRow("RAM", settings, "show-ram"));
-        generalGroup.add(this._createSwitchRow("NET", settings, "show-net"));
+        generalGroup.add(this._createSwitchRow("Show CPU", settings, "show-cpu"));
+        generalGroup.add(this._createSwitchRow("Show RAM", settings, "show-ram"));
+        generalGroup.add(this._createSwitchRow("Show NET", settings, "show-net"));
 
         /*
         --------------------
-        APPEARANCE
+        CPU PAGE
         --------------------
         */
 
-        const appearanceGroup = new Adw.PreferencesGroup({
-            title: 'Appearance'
+        const cpuPage = new Adw.PreferencesPage({
+            title: 'CPU',
+            icon_name: 'utilities-system-monitor-symbolic'
         });
+        window.add(cpuPage);
 
-        page.add(appearanceGroup);
+        const cpuGroup = new Adw.PreferencesGroup({ title: "Details" });
+        cpuPage.add(cpuGroup);
+
+        cpuGroup.add(this._createSwitchRow("Usage %", settings, "cpu-usage"));
+        cpuGroup.add(this._createSwitchRow("Clock", settings, "cpu-clock"));
+        cpuGroup.add(this._createSwitchRow("Temperature", settings, "cpu-temp"));
+
+        /*
+        --------------------
+        RAM PAGE
+        --------------------
+        */
+
+        const ramPage = new Adw.PreferencesPage({
+            title: 'RAM',
+            icon_name: 'drive-harddisk-symbolic'
+        });
+        window.add(ramPage);
+
+        const ramGroup = new Adw.PreferencesGroup({ title: "Details" });
+        ramPage.add(ramGroup);
+
+        ramGroup.add(this._createSwitchRow("Used", settings, "ram-used"));
+        ramGroup.add(this._createSwitchRow("Free", settings, "ram-free"));
+        ramGroup.add(this._createSwitchRow("Percent", settings, "ram-percent"));
+
+        /*
+        --------------------
+        NETWORK PAGE
+        --------------------
+        */
+
+        const netPage = new Adw.PreferencesPage({
+            title: 'Network',
+            icon_name: 'network-workgroup-symbolic'
+        });
+        window.add(netPage);
+
+        const netGroup = new Adw.PreferencesGroup({ title: "Details" });
+        netPage.add(netGroup);
+
+        netGroup.add(this._createSwitchRow("Download", settings, "net-down"));
+        netGroup.add(this._createSwitchRow("Upload", settings, "net-up"));
+
+        /*
+        --------------------
+        APPEARANCE PAGE
+        --------------------
+        */
+
+        const appearancePage = new Adw.PreferencesPage({
+            title: 'Appearance',
+            icon_name: 'preferences-desktop-theme-symbolic'
+        });
+        window.add(appearancePage);
+
+        const appearanceGroup = new Adw.PreferencesGroup();
+        appearancePage.add(appearanceGroup);
 
         appearanceGroup.add(this._createComboRow(
             "Brackets",
@@ -75,17 +134,20 @@ export default class RezMonPreferences extends ExtensionPreferences {
 
         /*
         --------------------
-        ADVANCED
+        ADVANCED PAGE
         --------------------
         */
 
-        const advancedGroup = new Adw.PreferencesGroup({
-            title: 'Advanced'
+        const advancedPage = new Adw.PreferencesPage({
+            title: 'Advanced',
+            icon_name: 'applications-system-symbolic'
         });
+        window.add(advancedPage);
 
-        page.add(advancedGroup);
+        const advancedGroup = new Adw.PreferencesGroup();
+        advancedPage.add(advancedGroup);
 
-        appearanceGroup.add(this._createComboRow(
+        advancedGroup.add(this._createComboRow(
             "Update Interval (sec)",
             settings,
             ["1", "2", "3", "4", "5"],

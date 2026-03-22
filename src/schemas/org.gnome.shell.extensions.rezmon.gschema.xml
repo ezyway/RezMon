@@ -2,37 +2,31 @@
 <schemalist>
   <schema id="org.gnome.shell.extensions.rezmon" path="/org/gnome/shell/extensions/rezmon/">
 
-    <key name="b-open" type="s">
-      <default>"("</default>
-    </key>
+    <!-- existing -->
+    <key name="b-open" type="s"><default>"("</default></key>
+    <key name="b-close" type="s"><default>")"</default></key>
+    <key name="delimiter" type="s"><default>"|"</default></key>
 
-    <key name="b-close" type="s">
-      <default>")"</default>
-    </key>
+    <key name="show-cpu" type="b"><default>true</default></key>
+    <key name="show-ram" type="b"><default>true</default></key>
+    <key name="show-net" type="b"><default>true</default></key>
 
-    <key name="delimiter" type="s">
-      <default>"|"</default>
-    </key>
+    <key name="update-interval" type="i"><default>1</default></key>
+    <key name="spacing" type="s"><default>"normal"</default></key>
 
-    <key name="show-cpu" type="b">
-      <default>true</default>
-    </key>
+    <!-- NEW: CPU -->
+    <key name="cpu-usage" type="b"><default>true</default></key>
+    <key name="cpu-clock" type="b"><default>true</default></key>
+    <key name="cpu-temp" type="b"><default>true</default></key>
 
-    <key name="show-ram" type="b">
-      <default>true</default>
-    </key>
+    <!-- NEW: RAM -->
+    <key name="ram-used" type="b"><default>true</default></key>
+    <key name="ram-free" type="b"><default>true</default></key>
+    <key name="ram-percent" type="b"><default>false</default></key>
 
-    <key name="show-net" type="b">
-      <default>true</default>
-    </key>
-
-    <key name="update-interval" type="i">
-      <default>1</default>
-    </key>
-
-    <key name="spacing" type="s">
-      <default>"normal"</default>
-    </key>
+    <!-- NEW: NET -->
+    <key name="net-down" type="b"><default>true</default></key>
+    <key name="net-up" type="b"><default>true</default></key>
 
   </schema>
 </schemalist>
