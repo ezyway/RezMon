@@ -2,9 +2,9 @@
  * Author: AZZlOl
  * Description: Displays CPU(use percentage, average clock speed, temp), RAM(Used, Free),
  * NET(Download, Upload) usage on the top bar.
- * Version: 18
- * GNOME Shell Tested: 49
- * GNOME Shell Supported: 45, 46, 47, 48, 49
+ * Version: 20
+ * GNOME Shell Tested: 50
+ * GNOME Shell Supported: 45, 46, 47, 48, 49, 50
  * GitHub: https://github.com/ezyway/RezMon
  * 
  * Credits: Michael Knap - System Monitor Tray Indicator - https://github.com/michaelknap/gnome-system-monitor-indicator
@@ -23,7 +23,6 @@ export default class RezMonExtension extends Extension {
     enable() {
         const settings = this.getSettings('org.gnome.shell.extensions.rezmon');
 
-        // ✅ pass `this` (extension instance)
         this._indicator = new RezMonIndicator(this, settings);
 
         panel.addToStatusArea('RezMon', this._indicator);

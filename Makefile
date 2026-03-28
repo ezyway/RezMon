@@ -42,7 +42,9 @@ uninstall:
 
 
 zip: build
-	cd build && zip -r ../$(UUID).zip $(UUID)
+	rm -f $(UUID).zip
+	cd $(BUILD) && zip -r ../../$(UUID).zip . \
+		-x "*.git*" "*node_modules*" "*__pycache__*" "*.DS_Store"
 
 	echo "Created $(UUID).zip"
 

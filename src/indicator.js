@@ -28,7 +28,6 @@ export class RezMonIndicator extends Button {
             style: 'margin-right: 12px;',
         });
 
-        // ✅ enable markup
         this.label.clutter_text.set_use_markup(true);
 
         this.box.add_child(this.label);

@@ -24,7 +24,7 @@ export default class RezMonPreferences extends ExtensionPreferences {
         });
         window.add(generalPage);
 
-        const generalGroup = new Adw.PreferencesGroup();
+        const generalGroup = new Adw.PreferencesGroup({ title: "Toggle Components" });
         generalPage.add(generalGroup);
 
         generalGroup.add(this._createSwitchRow("Show CPU", settings, "show-cpu"));
@@ -43,7 +43,7 @@ export default class RezMonPreferences extends ExtensionPreferences {
         });
         window.add(cpuPage);
 
-        const cpuGroup = new Adw.PreferencesGroup({ title: "Details" });
+        const cpuGroup = new Adw.PreferencesGroup({ title: "CPU Settings" });
         cpuPage.add(cpuGroup);
 
         cpuGroup.add(this._createSwitchRow("Usage %", settings, "cpu-usage"));
@@ -62,7 +62,7 @@ export default class RezMonPreferences extends ExtensionPreferences {
         });
         window.add(ramPage);
 
-        const ramGroup = new Adw.PreferencesGroup({ title: "Details" });
+        const ramGroup = new Adw.PreferencesGroup({ title: "RAM Settings" });
         ramPage.add(ramGroup);
 
         ramGroup.add(this._createSwitchRow("Used", settings, "ram-used"));
@@ -81,7 +81,7 @@ export default class RezMonPreferences extends ExtensionPreferences {
         });
         window.add(netPage);
 
-        const netGroup = new Adw.PreferencesGroup({ title: "Details" });
+        const netGroup = new Adw.PreferencesGroup({ title: "Network Settings" });
         netPage.add(netGroup);
 
         netGroup.add(this._createSwitchRow("Download", settings, "net-down"));
@@ -99,7 +99,7 @@ export default class RezMonPreferences extends ExtensionPreferences {
         });
         window.add(appearancePage);
 
-        const appearanceGroup = new Adw.PreferencesGroup();
+        const appearanceGroup = new Adw.PreferencesGroup({ title: "Appearence Settings" });
         appearancePage.add(appearanceGroup);
 
         appearanceGroup.add(this._createComboRow(
@@ -139,12 +139,12 @@ export default class RezMonPreferences extends ExtensionPreferences {
         */
 
         const advancedPage = new Adw.PreferencesPage({
-            title: 'Advanced',
+            title: 'Misc',
             icon_name: 'applications-system-symbolic'
         });
         window.add(advancedPage);
 
-        const advancedGroup = new Adw.PreferencesGroup();
+        const advancedGroup = new Adw.PreferencesGroup({ title: "Misc Settings" });
         advancedPage.add(advancedGroup);
 
         advancedGroup.add(this._createComboRow(
