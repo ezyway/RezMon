@@ -159,8 +159,10 @@ export class RezMonIndicator extends Button {
             if (formatted) parts.push(formatted);
         }
 
-        // this.label.set_text(parts.join(this.spacing));
-        this.label.clutter_text.set_markup(parts.join(this.spacing));
+        if (parts.length > 0)
+            this.label.clutter_text.set_markup(parts.join(this.spacing));
+        else
+            this.label.clutter_text.set_markup("RezMon");
     }
 
     /*
