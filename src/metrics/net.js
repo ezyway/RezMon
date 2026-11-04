@@ -1,14 +1,32 @@
-import GLib from 'gi://GLib';
 import { readFileLines } from '../utils/file.js';
+
+function getDefaultInterface() {
+    const lines = readFileLines('/proc/net/route');
+    let bestIface = '';
+    let lowestMetric = Infinity;
+
+    for (let i = 1; i < lines.length; i++) {
+        const fields = lines[i].trim().split(/\s+/);
+        if (fields.length >= 7 && fields[1] === '00000000') {
+            const flags = parseInt(fields[3], 16);
+            if ((flags & 0x2) !== 0) {
+                const metric = parseInt(fields[6], 10) || 0;
+                if (metric < lowestMetric) {
+                    lowestMetric = metric;
+                    bestIface = fields[0];
+                }
+            } else if (!bestIface) {
+                bestIface = fields[0];
+            }
+        }
+    }
+    return bestIface;
+}
 
 export function updateNET(state) {
 
     try {
-        let [ok, out] = GLib.spawn_command_line_sync(
-            'bash -c "ip route get 1 | awk \'{print $5; exit}\'"'
-        );
-
-        const iface = ok ? new TextDecoder().decode(out).trim() : '';
+        const iface = getDefaultInterface();
 
         if (!iface) {
             state.prev_iface = '';
