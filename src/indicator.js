@@ -1,6 +1,7 @@
 'use strict';
 
 import GLib from 'gi://GLib';
+import Gio from 'gi://Gio';
 import St from 'gi://St';
 import Clutter from 'gi://Clutter';
 import GObject from 'gi://GObject';
@@ -54,6 +55,24 @@ export class RezMonIndicator extends Button {
     _buildMenu() {
 
         this.menu.removeAll();
+
+        const monitorItem = new PopupMenuItem("System Monitor");
+
+        monitorItem.connect('activate', () => {
+            try {
+                const app = Gio.AppInfo.create_from_commandline(
+                    "gnome-system-monitor",
+                    null,
+                    Gio.AppInfoCreateFlags.NONE
+                );
+                if (app)
+                    app.launch([], null);
+            } catch (e) {
+                logError(e);
+            }
+        });
+
+        this.menu.addMenuItem(monitorItem);
 
         const settingsItem = new PopupMenuItem("Open Settings");
 
