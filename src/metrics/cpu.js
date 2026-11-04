@@ -102,6 +102,52 @@ function getThermalPath() {
     return cachedThermalPath;
 }
 
+function getCPUClock() {
+    // 1. Try standard Linux cpufreq sysfs interface (scaling_cur_freq in kHz)
+    const freqPaths = [
+        '/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq',
+        '/sys/devices/system/cpu/cpufreq/policy0/scaling_cur_freq'
+    ];
+    for (const p of freqPaths) {
+        if (GLib.file_test(p, GLib.FileTest.EXISTS)) {
+            const lines = readFileLines(p);
+            if (lines.length > 0 && lines[0].trim() !== '') {
+                const khz = parseInt(lines[0].trim(), 10);
+                if (Number.isFinite(khz) && khz > 0) {
+                    return khz / 1000000;
+                }
+            }
+        }
+    }
+
+    // 2. Fall back to /proc/cpuinfo
+    try {
+        const lines = readFileLines('/proc/cpuinfo');
+        let mhz = 0;
+        let count = 0;
+
+        for (const line of lines) {
+            const f = line.trim().split(/\s+/);
+            if (f[0] === 'cpu' && f[1] === 'MHz' && f.length >= 4) {
+                const val = parseFloat(f[3]);
+                if (Number.isFinite(val)) {
+                    mhz += val;
+                    count++;
+                }
+            }
+        }
+
+        if (count > 0) {
+            const ghz = (mhz / count) / 1000;
+            if (Number.isFinite(ghz)) {
+                return ghz;
+            }
+        }
+    } catch (e) {}
+
+    return null;
+}
+
 export function updateCPU(state) {
 
     let cpu_usage = null;
@@ -137,24 +183,7 @@ export function updateCPU(state) {
         }
     } catch (e) { logError(e); }
 
-    try {
-        const lines = readFileLines('/proc/cpuinfo');
-
-        let mhz = 0;
-        let count = 0;
-
-        for (const line of lines) {
-            const f = line.trim().split(/\s+/);
-
-            if (f[0] === 'cpu' && f[1] === 'MHz') {
-                mhz += parseInt(f[3]);
-                count++;
-            }
-        }
-
-        ghz_value = (mhz / count) / 1000;
-
-    } catch (e) { logError(e); }
+    ghz_value = getCPUClock();
 
     const thermalPath = getThermalPath();
     if (thermalPath) {

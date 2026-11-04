@@ -197,7 +197,7 @@ export class RezMonIndicator extends Button {
                 values.push(`${cpu.usage.toFixed(0)}%`);
         }
 
-        if (this.cpuClock && cpu.clock !== null)
+        if (this.cpuClock && Number.isFinite(cpu.clock))
             values.push(`${cpu.clock.toFixed(2)}GHz`);
 
         if (this.cpuTemp && Number.isFinite(cpu.temp))
