@@ -1,5 +1,5 @@
 {
-  "description": "Shows info about: CPU(usage, clock, temp), RAM(free, used) and NET (download, upload) on GNOME SHELL System Tray (Top Bar).\n\n\nTested on GNOME Shell 50, should work till Shell v45",
+  "description": "Shows info about: CPU(usage, clock, temp), RAM(free, used) and NET (download, upload) on GNOME SHELL System Tray (Top Bar).\n\n\nTested on GNOME Shell 51, should work till Shell v45",
   "name": "Resource Monitor",
   "shell-version": [
     "45",
@@ -7,9 +7,10 @@
     "47",
     "48",
     "49",
-    "50"
+    "50",
+    "51"
   ],
   "url": "https://github.com/ezyway/RezMon",
   "uuid": "rezmon@azz.lol",
-  "version": 20
+  "version": 21
 }

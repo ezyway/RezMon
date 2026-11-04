@@ -28,7 +28,7 @@ A minimalist, lightweight system resource monitor extension for the GNOME Shell 
 ## Compatibility
 
 RezMon is officially tested and supported on:
-- **GNOME Shell version**: `45`, `46`, `47`, `48`, `49`, and `50`
+- **GNOME Shell version**: `45`, `46`, `47`, `48`, `49`, `50`, and `51`
 - **OS**: Ubuntu 26.04 LTS (and other distributions running compatible GNOME versions)
 
 ## Installation

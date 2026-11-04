@@ -2,9 +2,9 @@
  * Author: AZZlOl
  * Description: Displays CPU(use percentage, average clock speed, temp), RAM(Used, Free),
  * NET(Download, Upload) usage on the top bar.
- * Version: 20
- * GNOME Shell Tested: 50
- * GNOME Shell Supported: 45, 46, 47, 48, 49, 50
+ * Version: 21
+ * GNOME Shell Tested: 51
+ * GNOME Shell Supported: 45, 46, 47, 48, 49, 50, 51
  * GitHub: https://github.com/ezyway/RezMon
  * 
  * Credits: Michael Knap - System Monitor Tray Indicator - https://github.com/michaelknap/gnome-system-monitor-indicator
