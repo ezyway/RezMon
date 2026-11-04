@@ -29,8 +29,9 @@ export default class RezMonExtension extends Extension {
     }
 
     disable() {
-        this._indicator.stop();
-        this._indicator.destroy();
-        this._indicator = undefined;
+        if (this._indicator) {
+            this._indicator.destroy();
+            this._indicator = null;
+        }
     }
 }

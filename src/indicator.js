@@ -65,7 +65,7 @@ export class RezMonIndicator extends Button {
     }
 
     _bindSettings() {
-        this._settings.connect('changed', () => {
+        this._settingsChangedId = this._settings.connect('changed', () => {
             this._reloadSettings();
         });
 
@@ -264,10 +264,21 @@ export class RezMonIndicator extends Button {
     }
 
     stop() {
-        if (this._timeout)
+        if (this._timeout) {
             GLib.source_remove(this._timeout);
+            this._timeout = null;
+        }
+    }
 
-        this._timeout = undefined;
+    destroy() {
+        this.stop();
+
+        if (this._settingsChangedId) {
+            this._settings.disconnect(this._settingsChangedId);
+            this._settingsChangedId = null;
+        }
+
+        super.destroy();
     }
 }
 
