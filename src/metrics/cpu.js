@@ -163,17 +163,19 @@ export function updateCPU(state) {
             if (fields[0] === 'cpu') {
                 const nums = fields.slice(1).map(Number);
 
-                const idle = nums[3];
-                const iowait = nums[4] || 0;
-
-                const total = nums.slice(0, 4).reduce((a, b) => a + b, 0) + iowait;
-                const used = total - idle - iowait;
+                const total = nums.reduce((a, b) => a + b, 0);
+                const idle = nums[3] + (nums[4] || 0);
+                const used = total - idle;
 
                 const total_diff = total - state.prev_total;
                 const used_diff = used - state.prev_used;
 
-                if (total_diff > 0)
-                    cpu_usage = ((used_diff / total_diff) * 100);
+                if (total_diff > 0) {
+                    const usage = (used_diff / total_diff) * 100;
+                    if (Number.isFinite(usage)) {
+                        cpu_usage = Math.max(0, Math.min(100, usage));
+                    }
+                }
 
                 state.prev_total = total;
                 state.prev_used = used;
@@ -181,7 +183,7 @@ export function updateCPU(state) {
                 break;
             }
         }
-    } catch (e) { logError(e); }
+    } catch (e) {}
 
     ghz_value = getCPUClock();
 

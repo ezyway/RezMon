@@ -188,7 +188,7 @@ export class RezMonIndicator extends Button {
 
         const values = [];
 
-        if (this.cpuUsage && cpu.usage !== null) {
+        if (this.cpuUsage && Number.isFinite(cpu.usage)) {
             const color = this._getColor(cpu.usage);
 
             if (color)
@@ -214,13 +214,13 @@ export class RezMonIndicator extends Button {
 
         const values = [];
 
-        if (this.ramUsed)
+        if (this.ramUsed && Number.isFinite(ram.used))
             values.push(`${ram.used.toFixed(1)}G`);
 
-        if (this.ramFree)
+        if (this.ramFree && Number.isFinite(ram.free))
             values.push(`${ram.free.toFixed(1)}G`);
 
-        if (this.ramPercent) {
+        if (this.ramPercent && Number.isFinite(ram.percent)) {
             const color = this._getColor(ram.percent);
 
             if (color)
