@@ -16,12 +16,18 @@ export function updateRAM(state) {
 
             if (k === 'MemTotal')
                 total = v;
-
-            if (k === 'MemAvailable')
+            else if (k === 'MemAvailable')
                 available = v;
+
+            if (total !== null && available !== null)
+                break;
         }
 
-        const used = total - available;
+        if (total === null || available === null || total <= 0) {
+            return null;
+        }
+
+        const used = Math.max(0, total - available);
 
         return {
             used: used / (1024 * 1024),
