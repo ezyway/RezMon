@@ -42,9 +42,10 @@ export class RezMonIndicator extends Button {
 
     _initValues() {
 
-        this.prev_time = Date.now() / 1000;
+        this.prev_time = null;
         this.prev_tx_bytes = 0;
         this.prev_rx_bytes = 0;
+        this.prev_iface = null;
 
         this.prev_used = 0;
         this.prev_total = 0;

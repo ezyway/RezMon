@@ -27,14 +27,23 @@ export function updateNET(state) {
         }
 
         const now = Date.now() / 1000;
-        const dt = now - state.prev_time;
+        const dt = state.prev_time ? (now - state.prev_time) : 0;
 
-        let txs = (tx - state.prev_tx_bytes) / dt;
-        let rxs = (rx - state.prev_rx_bytes) / dt;
+        if (!state.prev_time || state.prev_iface !== iface || dt <= 0) {
+            state.prev_tx_bytes = tx;
+            state.prev_rx_bytes = rx;
+            state.prev_time = now;
+            state.prev_iface = iface;
+            return { down: 0, up: 0 };
+        }
+
+        let txs = (tx >= state.prev_tx_bytes && dt > 0) ? (tx - state.prev_tx_bytes) / dt : 0;
+        let rxs = (rx >= state.prev_rx_bytes && dt > 0) ? (rx - state.prev_rx_bytes) / dt : 0;
 
         state.prev_tx_bytes = tx;
         state.prev_rx_bytes = rx;
         state.prev_time = now;
+        state.prev_iface = iface;
 
         return {
             down: rxs,
