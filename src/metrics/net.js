@@ -10,18 +10,24 @@ export function updateNET(state) {
 
         const iface = ok ? new TextDecoder().decode(out).trim() : '';
 
+        if (!iface) {
+            state.prev_iface = '';
+            return { down: 0, up: 0 };
+        }
+
         const lines = readFileLines('/proc/net/dev');
 
         let tx = 0;
         let rx = 0;
+        const ifacePrefix = `${iface}:`;
 
         for (let i = 2; i < lines.length; i++) {
             const l = lines[i].trim();
 
-            if (l.startsWith(iface)) {
+            if (l.startsWith(ifacePrefix)) {
                 const v = l.split(/\s+/);
-                rx = parseInt(v[1]);
-                tx = parseInt(v[9]);
+                rx = parseInt(v[1], 10) || 0;
+                tx = parseInt(v[9], 10) || 0;
                 break;
             }
         }
