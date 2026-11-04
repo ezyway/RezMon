@@ -110,6 +110,9 @@ export class RezMonIndicator extends Button {
         this.warnThreshold = this._settings.get_int('warn-threshold') || 70;
         this.critThreshold = this._settings.get_int('crit-threshold') || 90;
 
+        this.tempWarnThreshold = this._settings.get_int('temp-warn-threshold') || 75;
+        this.tempCritThreshold = this._settings.get_int('temp-crit-threshold') || 85;
+
         this.interval = this._settings.get_int("update-interval") || 1;
 
         this._restartLoop();
@@ -176,6 +179,20 @@ export class RezMonIndicator extends Button {
         return null;
     }
 
+    _getTempColor(value) {
+
+        if (value === null || value === undefined)
+            return null;
+
+        if (value >= this.tempCritThreshold)
+            return "#ff5555"; // red
+
+        if (value >= this.tempWarnThreshold)
+            return "#f1c40f"; // yellow
+
+        return null;
+    }
+
     /*
     ------------------------
     FORMATTERS
@@ -200,8 +217,14 @@ export class RezMonIndicator extends Button {
         if (this.cpuClock && Number.isFinite(cpu.clock))
             values.push(`${cpu.clock.toFixed(2)}GHz`);
 
-        if (this.cpuTemp && Number.isFinite(cpu.temp))
-            values.push(`${cpu.temp.toFixed(0)}℃`);
+        if (this.cpuTemp && Number.isFinite(cpu.temp)) {
+            const color = this._getTempColor(cpu.temp);
+
+            if (color)
+                values.push(`<span foreground="${color}">${cpu.temp.toFixed(0)}℃</span>`);
+            else
+                values.push(`${cpu.temp.toFixed(0)}℃`);
+        }
 
         if (values.length === 0) return "";
 
@@ -213,18 +236,21 @@ export class RezMonIndicator extends Button {
         if (!ram) return "";
 
         const values = [];
+        const ramColor = Number.isFinite(ram.percent) ? this._getColor(ram.percent) : null;
 
-        if (this.ramUsed && Number.isFinite(ram.used))
-            values.push(`${ram.used.toFixed(1)}G`);
+        if (this.ramUsed && Number.isFinite(ram.used)) {
+            if (ramColor && !this.ramPercent)
+                values.push(`<span foreground="${ramColor}">${ram.used.toFixed(1)}G</span>`);
+            else
+                values.push(`${ram.used.toFixed(1)}G`);
+        }
 
         if (this.ramFree && Number.isFinite(ram.free))
             values.push(`${ram.free.toFixed(1)}G`);
 
         if (this.ramPercent && Number.isFinite(ram.percent)) {
-            const color = this._getColor(ram.percent);
-
-            if (color)
-                values.push(`<span foreground="${color}">${ram.percent.toFixed(0)}%</span>`);
+            if (ramColor)
+                values.push(`<span foreground="${ramColor}">${ram.percent.toFixed(0)}%</span>`);
             else
                 values.push(`${ram.percent.toFixed(0)}%`);
         }
