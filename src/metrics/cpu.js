@@ -1,6 +1,6 @@
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
-import { readFileLines } from '../utils/file.js';
+import { readFile, readFileLines } from '../utils/file.js';
 
 let cachedThermalPath = undefined;
 
@@ -34,8 +34,8 @@ function findThermalPath() {
             for (const pref of preferredTypes) {
                 for (const zone of zones) {
                     const typePath = `${tzBase}/${zone}/type`;
-                    const typeLines = readFileLines(typePath);
-                    if (typeLines.length > 0 && typeLines[0].trim().toLowerCase() === pref) {
+                    const typeStr = readFile(typePath);
+                    if (typeStr && typeStr.trim().toLowerCase() === pref) {
                         const tempPath = `${tzBase}/${zone}/temp`;
                         if (GLib.file_test(tempPath, GLib.FileTest.EXISTS)) {
                             return tempPath;
@@ -69,9 +69,9 @@ function findThermalPath() {
                 const name = info.get_name();
                 if (name.startsWith('hwmon')) {
                     const nameFile = `${hwmonBase}/${name}/name`;
-                    const nameLines = readFileLines(nameFile);
-                    if (nameLines.length > 0) {
-                        const devName = nameLines[0].trim().toLowerCase();
+                    const nameStr = readFile(nameFile);
+                    if (nameStr) {
+                        const devName = nameStr.trim().toLowerCase();
                         if (['coretemp', 'k10temp', 'cpu'].some(p => devName.includes(p))) {
                             for (let i = 1; i <= 5; i++) {
                                 const inputPath = `${hwmonBase}/${name}/temp${i}_input`;
@@ -110,9 +110,9 @@ function getCPUClock() {
     ];
     for (const p of freqPaths) {
         if (GLib.file_test(p, GLib.FileTest.EXISTS)) {
-            const lines = readFileLines(p);
-            if (lines.length > 0 && lines[0].trim() !== '') {
-                const khz = parseInt(lines[0].trim(), 10);
+            const text = readFile(p);
+            if (text && text.trim() !== '') {
+                const khz = parseInt(text.trim(), 10);
                 if (Number.isFinite(khz) && khz > 0) {
                     return khz / 1000000;
                 }
@@ -195,9 +195,9 @@ export function updateCPU(state) {
         const thermalPath = getThermalPath();
         if (thermalPath) {
             try {
-                const lines = readFileLines(thermalPath);
-                if (lines.length > 0 && lines[0].trim() !== '') {
-                    const raw = parseInt(lines[0].trim(), 10);
+                const text = readFile(thermalPath);
+                if (text && text.trim() !== '') {
+                    const raw = parseInt(text.trim(), 10);
                     if (Number.isFinite(raw)) {
                         cpu_temp = raw / 1000;
                     }
