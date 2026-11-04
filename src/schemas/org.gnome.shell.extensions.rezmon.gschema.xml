@@ -29,7 +29,9 @@
     <key name="net-up" type="b"><default>true</default></key>
 
     <key name="warn-threshold" type="i"><default>70</default></key>
-
     <key name="crit-threshold" type="i"><default>90</default></key>
+
+    <key name="temp-warn-threshold" type="i"><default>75</default></key>
+    <key name="temp-crit-threshold" type="i"><default>85</default></key>
   </schema>
 </schemalist>

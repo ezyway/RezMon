@@ -155,6 +155,53 @@ export default class RezMonPreferences extends ExtensionPreferences {
             (value) => settings.set_int("update-interval", value),
             () => settings.get_int("update-interval")
         ));
+
+        const alertGroup = new Adw.PreferencesGroup({ title: "Alert Thresholds" });
+        advancedPage.add(alertGroup);
+
+        alertGroup.add(this._createSpinRow(
+            "Usage Warning Threshold (%)",
+            settings,
+            "warn-threshold",
+            1, 100, 1
+        ));
+
+        alertGroup.add(this._createSpinRow(
+            "Usage Critical Threshold (%)",
+            settings,
+            "crit-threshold",
+            1, 100, 1
+        ));
+
+        alertGroup.add(this._createSpinRow(
+            "Temperature Warning Threshold (℃)",
+            settings,
+            "temp-warn-threshold",
+            30, 120, 1
+        ));
+
+        alertGroup.add(this._createSpinRow(
+            "Temperature Critical Threshold (℃)",
+            settings,
+            "temp-crit-threshold",
+            30, 120, 1
+        ));
+    }
+
+    _createSpinRow(title, settings, key, lower, upper, step) {
+        const adj = new Gtk.Adjustment({
+            lower,
+            upper,
+            step_increment: step,
+            page_increment: step * 5,
+        });
+        const row = new Adw.SpinRow({
+            title,
+            adjustment: adj,
+            numeric: true,
+        });
+        settings.bind(key, row, 'value', Gio.SettingsBindFlags.DEFAULT);
+        return row;
     }
 
     _createSwitchRow(title, settings, key) {
