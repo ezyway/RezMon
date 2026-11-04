@@ -94,9 +94,13 @@ export class RezMonIndicator extends Button {
         this.netUp   = this._settings.get_boolean('net-up');
 
         // appearance
-        this.b_open = this._settings.get_string("b-open");
-        this.b_close = this._settings.get_string("b-close");
-        this.delimiter = this._settings.get_string("delimiter");
+        const raw_b_open = this._settings.get_string("b-open") || "";
+        const raw_b_close = this._settings.get_string("b-close") || "";
+        const raw_delimiter = this._settings.get_string("delimiter") || "";
+
+        this.b_open = GLib.markup_escape_text(raw_b_open, -1);
+        this.b_close = GLib.markup_escape_text(raw_b_close, -1);
+        this.delimiter = GLib.markup_escape_text(raw_delimiter, -1);
 
         const spacingMap = {
             small: "  ",
