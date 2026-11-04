@@ -237,13 +237,13 @@ export class RezMonIndicator extends Button {
 
         if (!net) return "";
 
-        let tx = net.up;
-        let rx = net.down;
+        let tx = (net && Number.isFinite(net.up)) ? Math.max(0, net.up) : 0;
+        let rx = (net && Number.isFinite(net.down)) ? Math.max(0, net.down) : 0;
 
         const units = ['B/s', 'KB/s', 'MB/s', 'GB/s'];
         let u = 0;
 
-        while (tx > 99 || rx > 99) {
+        while (((this.netUp && tx > 999) || (this.netDown && rx > 999)) && u < units.length - 1) {
             tx /= 1024;
             rx /= 1024;
             u++;
