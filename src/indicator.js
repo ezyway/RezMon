@@ -200,7 +200,7 @@ export class RezMonIndicator extends Button {
         if (this.cpuClock && cpu.clock !== null)
             values.push(`${cpu.clock.toFixed(2)}GHz`);
 
-        if (this.cpuTemp && cpu.temp !== null)
+        if (this.cpuTemp && Number.isFinite(cpu.temp))
             values.push(`${cpu.temp.toFixed(0)}℃`);
 
         if (values.length === 0) return "";

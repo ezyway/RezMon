@@ -14,7 +14,6 @@ export function readFileLines(filePath) {
 
     } catch(e) {
 
-        logError(e);
         return [];
 
     }
