@@ -154,50 +154,56 @@ export function updateCPU(state) {
     let ghz_value = null;
     let cpu_temp = null;
 
-    try {
-        const lines = readFileLines('/proc/stat');
-
-        for (const line of lines) {
-            const fields = line.trim().split(/\s+/);
-
-            if (fields[0] === 'cpu') {
-                const nums = fields.slice(1).map(Number);
-
-                const total = nums.reduce((a, b) => a + b, 0);
-                const idle = nums[3] + (nums[4] || 0);
-                const used = total - idle;
-
-                const total_diff = total - state.prev_total;
-                const used_diff = used - state.prev_used;
-
-                if (total_diff > 0) {
-                    const usage = (used_diff / total_diff) * 100;
-                    if (Number.isFinite(usage)) {
-                        cpu_usage = Math.max(0, Math.min(100, usage));
-                    }
-                }
-
-                state.prev_total = total;
-                state.prev_used = used;
-
-                break;
-            }
-        }
-    } catch (e) {}
-
-    ghz_value = getCPUClock();
-
-    const thermalPath = getThermalPath();
-    if (thermalPath) {
+    if (state.cpuUsage ?? true) {
         try {
-            const lines = readFileLines(thermalPath);
-            if (lines.length > 0 && lines[0].trim() !== '') {
-                const raw = parseInt(lines[0].trim(), 10);
-                if (Number.isFinite(raw)) {
-                    cpu_temp = raw / 1000;
+            const lines = readFileLines('/proc/stat');
+
+            for (const line of lines) {
+                const fields = line.trim().split(/\s+/);
+
+                if (fields[0] === 'cpu') {
+                    const nums = fields.slice(1).map(Number);
+
+                    const total = nums.reduce((a, b) => a + b, 0);
+                    const idle = nums[3] + (nums[4] || 0);
+                    const used = total - idle;
+
+                    const total_diff = total - state.prev_total;
+                    const used_diff = used - state.prev_used;
+
+                    if (total_diff > 0) {
+                        const usage = (used_diff / total_diff) * 100;
+                        if (Number.isFinite(usage)) {
+                            cpu_usage = Math.max(0, Math.min(100, usage));
+                        }
+                    }
+
+                    state.prev_total = total;
+                    state.prev_used = used;
+
+                    break;
                 }
             }
         } catch (e) {}
+    }
+
+    if (state.cpuClock ?? true) {
+        ghz_value = getCPUClock();
+    }
+
+    if (state.cpuTemp ?? true) {
+        const thermalPath = getThermalPath();
+        if (thermalPath) {
+            try {
+                const lines = readFileLines(thermalPath);
+                if (lines.length > 0 && lines[0].trim() !== '') {
+                    const raw = parseInt(lines[0].trim(), 10);
+                    if (Number.isFinite(raw)) {
+                        cpu_temp = raw / 1000;
+                    }
+                }
+            } catch (e) {}
+        }
     }
 
     return {
