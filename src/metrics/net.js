@@ -23,10 +23,38 @@ function getDefaultInterface() {
     return bestIface;
 }
 
+export function getAvailableInterfaces() {
+    const lines = readFileLines('/proc/net/dev');
+    const ifaces = [];
+    for (let i = 2; i < lines.length; i++) {
+        const line = lines[i].trim();
+        const colonIdx = line.indexOf(':');
+        if (colonIdx > 0) {
+            const iface = line.substring(0, colonIdx).trim();
+            if (iface && iface !== 'lo') {
+                ifaces.push(iface);
+            }
+        }
+    }
+    return ifaces;
+}
+
 export function updateNET(state) {
 
     try {
-        const iface = getDefaultInterface();
+        let selected = state.netInterface || 'auto';
+        let iface = '';
+
+        if (selected !== 'auto') {
+            const available = getAvailableInterfaces();
+            if (available.includes(selected)) {
+                iface = selected;
+            } else {
+                iface = getDefaultInterface();
+            }
+        } else {
+            iface = getDefaultInterface();
+        }
 
         if (!iface) {
             state.prev_iface = '';

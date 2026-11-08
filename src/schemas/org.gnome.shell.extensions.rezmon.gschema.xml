@@ -56,6 +56,7 @@
     <key name="disk-space-percent" type="b"><default>false</default></key>
 
     <!-- NEW: NET -->
+    <key name="net-interface" type="s"><default>"auto"</default></key>
     <key name="net-down" type="b"><default>true</default></key>
     <key name="net-up" type="b"><default>true</default></key>
 

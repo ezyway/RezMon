@@ -357,6 +357,7 @@ export class RezMonIndicator extends Button {
         this.diskSpacePercent = this._settings.get_boolean('disk-space-percent');
 
         // net toggles
+        this.netInterface = this._settings.get_string('net-interface') || 'auto';
         this.netDown = this._settings.get_boolean('net-down');
         this.netUp   = this._settings.get_boolean('net-up');
 

@@ -7,9 +7,8 @@
 ## Table of Contents
 
 1. [Network & Data Accuracy Enhancements](#1-network--data-accuracy-enhancements)
-   - [1.1 Interface Selection (Auto vs Specific Interface / VPN)](#11-interface-selection-auto-vs-specific-interface--vpn)
-   - [1.2 Independent Up/Down Scaling & Fractional Decimals](#12-independent-updown-scaling--fractional-decimals)
-   - [1.3 Cumulative Session Traffic Counters](#13-cumulative-session-traffic-counters)
+   - [1.1 Independent Up/Down Scaling & Fractional Decimals](#11-independent-updown-scaling--fractional-decimals)
+   - [1.2 Cumulative Session Traffic Counters](#12-cumulative-session-traffic-counters)
 2. [Internationalization, CI/CD & Code Quality](#2-internationalization-cicd--code-quality)
    - [2.1 Gettext Internationalization (i18n / Localization)](#21-gettext-internationalization-i18n--localization)
    - [2.2 Automated GitHub Actions CI & Packaging](#22-automated-github-actions-ci--packaging)
@@ -21,16 +20,7 @@
 
 ## 1. Network & Data Accuracy Enhancements
 
-### 1.1 Interface Selection (Auto vs Specific Interface / VPN)
-* **Target Files:** `src/metrics/net.js`, `src/schemas/...gschema.xml`, `src/prefs.js`
-* **Motivation:**
-  Currently, RezMon always monitors the default gateway interface. Users working through VPN tunnels (`tun0`, `wg0`), container interfaces (`docker0`), or secondary NICs cannot monitor that traffic.
-* **Proposed Implementation:**
-  - Add schema key `net-interface` (default: `'auto'`).
-  - In `prefs.js`, populate an `Adw.ComboRow` with `'Auto (Default Route)'` plus all detected interfaces from `/proc/net/dev`.
-  - In `updateNET()`, if `net-interface !== 'auto'`, track the user-specified interface.
-
-### 1.2 Independent Up/Down Scaling & Fractional Decimals
+### 1.1 Independent Up/Down Scaling & Fractional Decimals
 * **Target Files:** `src/indicator.js`
 * **Motivation:**
   Currently, download and upload share a single unit suffix. If upload is 2.5 MB/s and download is 400 KB/s, download is divided by 1024, resulting in `0.39 MB/s`, which `toFixed(0)` truncates to `↓ 00 MB/s`.
@@ -38,7 +28,7 @@
   - Option A: Format each direction with its own unit when units differ: `↓ 400KB/s | ↑ 2.5MB/s`.
   - Option B: Use 1 decimal place (`toFixed(1)`) whenever the value is `< 10` (e.g. `↓ 0.4 | ↑ 2.5 MB/s`).
 
-### 1.3 Cumulative Session Traffic Counters
+### 1.2 Cumulative Session Traffic Counters
 * **Target Files:** `src/metrics/net.js`, `src/indicator.js`
 * **Motivation:**
   Users on metered cellular data or limited internet connections want to know total data consumed during the session.
@@ -104,6 +94,7 @@
 - **Dropdown System Summary Dashboard (4.1)**: Embedded live quick status overview card in the popup menu with progress bars and CPU/RAM/SWAP/GPU/Disk/Network telemetry.
 - **Top Resource Consumers (4.2)**: On-demand asynchronous snapshot of top 3 CPU and Memory processes displayed in the menu with zero background overhead.
 - **Dynamic System Monitor Launchers (4.3)**: Automatic runtime discovery and launching of graphical monitors (Resources, GNOME System Monitor, Mission Center) and CLI tools (btop, htop) via terminal emulator.
+- **Network Interface Selection (5.1)**: User selection of monitored network interfaces (Auto/Default Route, Wi-Fi, Ethernet, VPN tunnels) with live sysfs discovery and offline fallback.
 
 ---
 

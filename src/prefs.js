@@ -5,6 +5,7 @@ import Gtk from 'gi://Gtk';
 import Gio from 'gi://Gio';
 
 import { ExtensionPreferences } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
+import { readFileLines } from './utils/file.js';
 
 export default class RezMonPreferences extends ExtensionPreferences {
 
@@ -166,6 +167,38 @@ export default class RezMonPreferences extends ExtensionPreferences {
 
         const netGroup = new Adw.PreferencesGroup({ title: "Network Settings" });
         netPage.add(netGroup);
+
+        const ifaces = ['auto'];
+        const labels = ['Auto (Default Route)'];
+        try {
+            const lines = readFileLines('/proc/net/dev');
+            for (let i = 2; i < lines.length; i++) {
+                const line = lines[i].trim();
+                const colon = line.indexOf(':');
+                if (colon > 0) {
+                    const iface = line.substring(0, colon).trim();
+                    if (iface && iface !== 'lo') {
+                        ifaces.push(iface);
+                        labels.push(iface);
+                    }
+                }
+            }
+        } catch (_) {}
+
+        const savedIface = settings.get_string('net-interface');
+        if (savedIface && !ifaces.includes(savedIface)) {
+            ifaces.push(savedIface);
+            labels.push(`${savedIface} (Offline)`);
+        }
+
+        netGroup.add(this._createComboRow(
+            "Monitored Interface",
+            settings,
+            labels,
+            ifaces,
+            (val) => settings.set_string("net-interface", val),
+            () => settings.get_string("net-interface")
+        ));
 
         netGroup.add(this._createSwitchRow("Download", settings, "net-down"));
         netGroup.add(this._createSwitchRow("Upload", settings, "net-up"));
