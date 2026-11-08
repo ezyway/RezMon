@@ -10,6 +10,7 @@ import { Button } from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import { PopupMenuItem } from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
 import { updateCPU } from './metrics/cpu.js';
+import { updateGPU } from './metrics/gpu.js';
 import { updateRAM } from './metrics/ram.js';
 import { updateNET } from './metrics/net.js';
 
@@ -95,6 +96,7 @@ export class RezMonIndicator extends Button {
 
         // visibility
         this.showCPU = this._settings.get_boolean('show-cpu');
+        this.showGPU = this._settings.get_boolean('show-gpu');
         this.showRAM = this._settings.get_boolean('show-ram');
         this.showNET = this._settings.get_boolean('show-net');
 
@@ -102,6 +104,15 @@ export class RezMonIndicator extends Button {
         this.cpuUsage = this._settings.get_boolean('cpu-usage');
         this.cpuClock = this._settings.get_boolean('cpu-clock');
         this.cpuTemp  = this._settings.get_boolean('cpu-temp');
+
+        // gpu toggles
+        this.gpuDevice = this._settings.get_string('gpu-device');
+        this.gpuUsage = this._settings.get_boolean('gpu-usage');
+        this.gpuClock = this._settings.get_boolean('gpu-clock');
+        this.gpuTemp  = this._settings.get_boolean('gpu-temp');
+        this.gpuVramUsed = this._settings.get_boolean('gpu-vram-used');
+        this.gpuVramFree = this._settings.get_boolean('gpu-vram-free');
+        this.gpuVramPercent = this._settings.get_boolean('gpu-vram-percent');
 
         // ram toggles
         this.ramUsed = this._settings.get_boolean('ram-used');
@@ -163,6 +174,12 @@ export class RezMonIndicator extends Button {
         if (this.showCPU) {
             const cpu = updateCPU(this);
             const formatted = this._formatCPU(cpu);
+            if (formatted) parts.push(formatted);
+        }
+
+        if (this.showGPU) {
+            const gpu = updateGPU(this);
+            const formatted = this._formatGPU(gpu);
             if (formatted) parts.push(formatted);
         }
 
@@ -254,6 +271,64 @@ export class RezMonIndicator extends Button {
         if (values.length === 0) return "";
 
         return `CPU${this.b_open}${values.join(` ${this.delimiter} `)}${this.b_close}`;
+    }
+
+    _formatGPU(gpu) {
+
+        if (!gpu) return "";
+
+        if (gpu.sleeping)
+            return `GPU${this.b_open}Sleep${this.b_close}`;
+
+        const values = [];
+
+        if (this.gpuUsage && Number.isFinite(gpu.usage)) {
+            const color = this._getColor(gpu.usage);
+
+            if (color)
+                values.push(`<span foreground="${color}">${gpu.usage.toFixed(0)}%</span>`);
+            else
+                values.push(`${gpu.usage.toFixed(0)}%`);
+        }
+
+        if (this.gpuClock && Number.isFinite(gpu.clock)) {
+            if (gpu.clock >= 1000)
+                values.push(`${(gpu.clock / 1000).toFixed(2)}GHz`);
+            else
+                values.push(`${gpu.clock.toFixed(0)}MHz`);
+        }
+
+        if (this.gpuTemp && Number.isFinite(gpu.temp)) {
+            const color = this._getTempColor(gpu.temp);
+
+            if (color)
+                values.push(`<span foreground="${color}">${gpu.temp.toFixed(0)}℃</span>`);
+            else
+                values.push(`${gpu.temp.toFixed(0)}℃`);
+        }
+
+        const vramColor = Number.isFinite(gpu.vramPercent) ? this._getColor(gpu.vramPercent) : null;
+
+        if (this.gpuVramUsed && Number.isFinite(gpu.vramUsed)) {
+            if (vramColor && !this.gpuVramPercent)
+                values.push(`<span foreground="${vramColor}">${gpu.vramUsed.toFixed(1)}G</span>`);
+            else
+                values.push(`${gpu.vramUsed.toFixed(1)}G`);
+        }
+
+        if (this.gpuVramFree && Number.isFinite(gpu.vramFree))
+            values.push(`${gpu.vramFree.toFixed(1)}G`);
+
+        if (this.gpuVramPercent && Number.isFinite(gpu.vramPercent)) {
+            if (vramColor)
+                values.push(`<span foreground="${vramColor}">${gpu.vramPercent.toFixed(0)}%</span>`);
+            else
+                values.push(`${gpu.vramPercent.toFixed(0)}%`);
+        }
+
+        if (values.length === 0) return "";
+
+        return `GPU${this.b_open}${values.join(` ${this.delimiter} `)}${this.b_close}`;
     }
 
     _formatRAM(ram) {

@@ -8,6 +8,7 @@
     <key name="delimiter" type="s"><default>"|"</default></key>
 
     <key name="show-cpu" type="b"><default>true</default></key>
+    <key name="show-gpu" type="b"><default>true</default></key>
     <key name="show-ram" type="b"><default>true</default></key>
     <key name="show-net" type="b"><default>true</default></key>
 
@@ -18,6 +19,15 @@
     <key name="cpu-usage" type="b"><default>true</default></key>
     <key name="cpu-clock" type="b"><default>true</default></key>
     <key name="cpu-temp" type="b"><default>true</default></key>
+
+    <!-- NEW: GPU -->
+    <key name="gpu-device" type="s"><default>"auto"</default></key>
+    <key name="gpu-usage" type="b"><default>true</default></key>
+    <key name="gpu-clock" type="b"><default>false</default></key>
+    <key name="gpu-temp" type="b"><default>true</default></key>
+    <key name="gpu-vram-used" type="b"><default>true</default></key>
+    <key name="gpu-vram-free" type="b"><default>false</default></key>
+    <key name="gpu-vram-percent" type="b"><default>false</default></key>
 
     <!-- NEW: RAM -->
     <key name="ram-used" type="b"><default>true</default></key>

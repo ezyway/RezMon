@@ -28,6 +28,7 @@ export default class RezMonPreferences extends ExtensionPreferences {
         generalPage.add(generalGroup);
 
         generalGroup.add(this._createSwitchRow("Show CPU", settings, "show-cpu"));
+        generalGroup.add(this._createSwitchRow("Show GPU", settings, "show-gpu"));
         generalGroup.add(this._createSwitchRow("Show RAM", settings, "show-ram"));
         generalGroup.add(this._createSwitchRow("Show NET", settings, "show-net"));
 
@@ -49,6 +50,37 @@ export default class RezMonPreferences extends ExtensionPreferences {
         cpuGroup.add(this._createSwitchRow("Usage %", settings, "cpu-usage"));
         cpuGroup.add(this._createSwitchRow("Clock", settings, "cpu-clock"));
         cpuGroup.add(this._createSwitchRow("Temperature", settings, "cpu-temp"));
+
+        /*
+        --------------------
+        GPU PAGE
+        --------------------
+        */
+
+        const gpuPage = new Adw.PreferencesPage({
+            title: 'GPU',
+            icon_name: 'video-display-symbolic'
+        });
+        window.add(gpuPage);
+
+        const gpuGroup = new Adw.PreferencesGroup({ title: "GPU Settings" });
+        gpuPage.add(gpuGroup);
+
+        gpuGroup.add(this._createComboRow(
+            "GPU Device",
+            settings,
+            ["Auto (Dedicated when Active)", "Dedicated GPU", "Integrated GPU"],
+            ["auto", "dedicated", "integrated"],
+            (value) => settings.set_string("gpu-device", value),
+            () => settings.get_string("gpu-device")
+        ));
+
+        gpuGroup.add(this._createSwitchRow("Usage %", settings, "gpu-usage"));
+        gpuGroup.add(this._createSwitchRow("Clock", settings, "gpu-clock"));
+        gpuGroup.add(this._createSwitchRow("Temperature", settings, "gpu-temp"));
+        gpuGroup.add(this._createSwitchRow("VRAM Used", settings, "gpu-vram-used"));
+        gpuGroup.add(this._createSwitchRow("VRAM Free", settings, "gpu-vram-free"));
+        gpuGroup.add(this._createSwitchRow("VRAM Percent", settings, "gpu-vram-percent"));
 
         /*
         --------------------
