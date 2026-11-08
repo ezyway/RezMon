@@ -9,18 +9,42 @@ import GLib from 'gi://GLib';
  */
 export async function getTopProcesses() {
     return new Promise((resolve) => {
+        let isResolved = false;
+        const cancellable = new Gio.Cancellable();
+
+        let timeoutId = GLib.timeout_add_seconds(GLib.PRIORITY_DEFAULT, 2, () => {
+            timeoutId = 0;
+            if (!isResolved) {
+                isResolved = true;
+                cancellable.cancel();
+                resolve({ topCpu: [], topMem: [] });
+            }
+            return GLib.SOURCE_REMOVE;
+        });
+
+        const safeResolve = (data) => {
+            if (timeoutId) {
+                GLib.source_remove(timeoutId);
+                timeoutId = 0;
+            }
+            if (!isResolved) {
+                isResolved = true;
+                resolve(data);
+            }
+        };
+
         try {
             const proc = new Gio.Subprocess({
                 argv: ['ps', '-eo', 'pid,comm,%cpu,%mem', '--no-headers'],
                 flags: Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_SILENCE,
             });
 
-            proc.init(null);
-            proc.communicate_utf8_async(null, null, (proc, res) => {
+            proc.init(cancellable);
+            proc.communicate_utf8_async(null, cancellable, (proc, res) => {
                 try {
                     const [, stdout] = proc.communicate_utf8_finish(res);
                     if (!stdout) {
-                        resolve({ topCpu: [], topMem: [] });
+                        safeResolve({ topCpu: [], topMem: [] });
                         return;
                     }
 
@@ -47,13 +71,13 @@ export async function getTopProcesses() {
                         .slice(0, 3)
                         .map(p => ({ pid: p.pid, name: p.name, mem: p.mem }));
 
-                    resolve({ topCpu, topMem });
+                    safeResolve({ topCpu, topMem });
                 } catch (_) {
-                    resolve({ topCpu: [], topMem: [] });
+                    safeResolve({ topCpu: [], topMem: [] });
                 }
             });
         } catch (_) {
-            resolve({ topCpu: [], topMem: [] });
+            safeResolve({ topCpu: [], topMem: [] });
         }
     });
 }

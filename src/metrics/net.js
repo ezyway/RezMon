@@ -1,3 +1,4 @@
+import GLib from 'gi://GLib';
 import { readFileLines } from '../utils/file.js';
 
 function getDefaultInterface() {
@@ -78,7 +79,7 @@ export function updateNET(state) {
             }
         }
 
-        const now = Date.now() / 1000;
+        const now = GLib.get_monotonic_time() / 1000000;
         const dt = state.prev_time ? (now - state.prev_time) : 0;
 
         if (!state.prev_time || state.prev_iface !== iface || dt <= 0) {

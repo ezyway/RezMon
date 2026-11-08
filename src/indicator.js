@@ -176,8 +176,10 @@ export class RezMonIndicator extends Button {
                 null,
                 Gio.AppInfoCreateFlags.NONE
             );
-            if (app)
-                app.launch([], null);
+            if (app) {
+                const context = global.create_app_launch_context(0, -1);
+                app.launch([], context);
+            }
         } catch (e) {
             logError(e);
         }
@@ -881,6 +883,10 @@ export class RezMonIndicator extends Button {
 
     destroy() {
         this.stop();
+
+        if (this.menu) {
+            this.menu.disconnectObject(this);
+        }
 
         if (this._settingsChangedId) {
             this._settings.disconnect(this._settingsChangedId);

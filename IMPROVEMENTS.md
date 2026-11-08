@@ -78,6 +78,7 @@
 - **Network Interface Selection (5.1)**: User selection of monitored network interfaces (Auto/Default Route, Wi-Fi, Ethernet, VPN tunnels) with live sysfs discovery and offline fallback.
 - **Independent Network Scaling & Fractional Decimals (5.2)**: Independent unit scaling for upload and download rates with 1-decimal fractional precision for small values below 10.
 - **Gettext Internationalization (6.1)**: Full gettext i18n support across extension, prefs, and menu with domain setup in metadata.json and template `po/rezmon.pot`.
+- **Production Reliability & Bug Fix Overhaul**: Converted NVIDIA polling to non-blocking async subprocess with D3cold power awareness, protected all GFileEnumerators with explicit close calls, switched rate timers to GLib monotonic time, added 2s cancellable timeout to top processes, and added Wayland launch context.
 
 ---
 

@@ -1,6 +1,7 @@
 'use strict';
 
 import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
 import { readFileLines } from '../utils/file.js';
 
 let physicalDisks = null;
@@ -11,8 +12,9 @@ function getPhysicalDisks() {
     const blockDir = Gio.File.new_for_path('/sys/block');
     const disks = new Set();
     if (blockDir.query_exists(null)) {
+        let enumerator = null;
         try {
-            const enumerator = blockDir.enumerate_children(
+            enumerator = blockDir.enumerate_children(
                 'standard::name',
                 Gio.FileQueryInfoFlags.NONE,
                 null
@@ -24,7 +26,12 @@ function getPhysicalDisks() {
                     disks.add(name);
                 }
             }
-        } catch (e) {}
+        } catch (e) {
+        } finally {
+            if (enumerator) {
+                try { enumerator.close(null); } catch (_) {}
+            }
+        }
     }
     physicalDisks = disks;
     return physicalDisks;
@@ -35,7 +42,7 @@ export function updateDisk(state, { force = false } = {}) {
 
     let readRate = 0;
     let writeRate = 0;
-    const now = Date.now();
+    const now = GLib.get_monotonic_time() / 1000;
 
     // 1. Throughput from /proc/diskstats
     if (force || state.diskRead || state.diskWrite) {

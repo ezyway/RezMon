@@ -59,17 +59,25 @@ function getPackageTemp() {
     const preferred = ['x86_pkg_temp', 'coretemp', 'cpu_thermal', 'cpu-thermal', 'soc_thermal'];
     try {
         if (tzDir.query_exists(null)) {
-            const enumerator = tzDir.enumerate_children(
-                'standard::name',
-                Gio.FileQueryInfoFlags.NONE,
-                null
-            );
-            let info;
+            let enumerator = null;
             const zones = [];
-            while ((info = enumerator.next_file(null)) !== null) {
-                const name = info.get_name();
-                if (name.startsWith('thermal_zone')) zones.push(name);
+            try {
+                enumerator = tzDir.enumerate_children(
+                    'standard::name',
+                    Gio.FileQueryInfoFlags.NONE,
+                    null
+                );
+                let info;
+                while ((info = enumerator.next_file(null)) !== null) {
+                    const name = info.get_name();
+                    if (name.startsWith('thermal_zone')) zones.push(name);
+                }
+            } finally {
+                if (enumerator) {
+                    try { enumerator.close(null); } catch (_) {}
+                }
             }
+
             zones.sort();
             for (const pref of preferred) {
                 for (const z of zones) {
@@ -102,8 +110,9 @@ function scanGPUs() {
 
     const drmDir = Gio.File.new_for_path('/sys/class/drm');
     if (drmDir.query_exists(null)) {
+        let enumerator = null;
         try {
-            const enumerator = drmDir.enumerate_children(
+            enumerator = drmDir.enumerate_children(
                 'standard::name',
                 Gio.FileQueryInfoFlags.NONE,
                 null
@@ -132,10 +141,39 @@ function scanGPUs() {
                     }
                 }
             }
-        } catch (e) {}
+        } catch (e) {
+        } finally {
+            if (enumerator) {
+                try { enumerator.close(null); } catch (_) {}
+            }
+        }
     }
 
     const hasNvidiaSmi = GLib.find_program_in_path('nvidia-smi') !== null;
+
+    // Fallback detection for NVIDIA PCI device if not enumerated in DRM card list
+    if (!nvidiaCard && hasNvidiaSmi) {
+        const pciDir = Gio.File.new_for_path('/sys/bus/pci/drivers/nvidia');
+        if (pciDir.query_exists(null)) {
+            let enumerator = null;
+            try {
+                enumerator = pciDir.enumerate_children('standard::name', Gio.FileQueryInfoFlags.NONE, null);
+                let info;
+                while ((info = enumerator.next_file(null)) !== null) {
+                    const name = info.get_name();
+                    if (/^[0-9a-fA-F]{4}:/.test(name)) {
+                        nvidiaCard = { name, devPath: `/sys/bus/pci/drivers/nvidia/${name}`, driver: 'nvidia' };
+                        break;
+                    }
+                }
+            } catch (_) {
+            } finally {
+                if (enumerator) {
+                    try { enumerator.close(null); } catch (_) {}
+                }
+            }
+        }
+    }
 
     detectedGPUs = {
         nvidia: nvidiaCard || (hasNvidiaSmi ? { driver: 'nvidia' } : null),
@@ -146,6 +184,9 @@ function scanGPUs() {
 
     return detectedGPUs;
 }
+
+let cachedNvidiaStats = null;
+let isNvidiaQuerying = false;
 
 function queryNvidia(gpus) {
     if (!gpus.nvidia || !gpus.hasNvidiaSmi) return null;
@@ -167,41 +208,69 @@ function queryNvidia(gpus) {
         }
     }
 
-    try {
-        const [ok, out] = GLib.spawn_command_line_sync(
-            'nvidia-smi --query-gpu=utilization.gpu,temperature.gpu,clocks.current.graphics,memory.used,memory.total --format=csv,noheader,nounits'
-        );
+    // Spawn non-blocking async query if not already in flight
+    if (!isNvidiaQuerying) {
+        isNvidiaQuerying = true;
+        try {
+            const proc = new Gio.Subprocess({
+                argv: [
+                    'nvidia-smi',
+                    '--query-gpu=utilization.gpu,temperature.gpu,clocks.current.graphics,memory.used,memory.total',
+                    '--format=csv,noheader,nounits'
+                ],
+                flags: Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_SILENCE,
+            });
 
-        if (!ok || !out) return null;
+            proc.init(null);
+            proc.communicate_utf8_async(null, null, (proc, res) => {
+                try {
+                    const [, stdout] = proc.communicate_utf8_finish(res);
+                    if (stdout) {
+                        const parts = stdout.trim().split(',').map(s => s.trim());
+                        if (parts.length >= 5) {
+                            const usage = parseFloat(parts[0]);
+                            const temp = parseFloat(parts[1]);
+                            const clockMhz = parseFloat(parts[2]);
+                            const memUsedMib = parseFloat(parts[3]);
+                            const memTotalMib = parseFloat(parts[4]);
 
-        const text = new TextDecoder('utf-8').decode(out).trim();
-        const parts = text.split(',').map(s => s.trim());
-        if (parts.length < 5) return null;
+                            const vramUsedG = memUsedMib / 1024;
+                            const vramTotalG = memTotalMib / 1024;
+                            const vramFreeG = Math.max(0, vramTotalG - vramUsedG);
+                            const vramPercent = memTotalMib > 0 ? (memUsedMib / memTotalMib) * 100 : 0;
 
-        const usage = parseFloat(parts[0]);
-        const temp = parseFloat(parts[1]);
-        const clockMhz = parseFloat(parts[2]);
-        const memUsedMib = parseFloat(parts[3]);
-        const memTotalMib = parseFloat(parts[4]);
-
-        const vramUsedG = memUsedMib / 1024;
-        const vramTotalG = memTotalMib / 1024;
-        const vramFreeG = Math.max(0, vramTotalG - vramUsedG);
-        const vramPercent = memTotalMib > 0 ? (memUsedMib / memTotalMib) * 100 : 0;
-
-        return {
-            sleeping: false,
-            name: 'NVIDIA',
-            usage: Number.isFinite(usage) ? usage : 0,
-            temp: Number.isFinite(temp) ? temp : null,
-            clock: Number.isFinite(clockMhz) ? clockMhz : null,
-            vramUsed: Number.isFinite(vramUsedG) ? vramUsedG : null,
-            vramFree: Number.isFinite(vramFreeG) ? vramFreeG : null,
-            vramPercent: Number.isFinite(vramPercent) ? vramPercent : null,
-        };
-    } catch (e) {
-        return null;
+                            cachedNvidiaStats = {
+                                sleeping: false,
+                                name: 'NVIDIA',
+                                usage: Number.isFinite(usage) ? usage : 0,
+                                temp: Number.isFinite(temp) ? temp : null,
+                                clock: Number.isFinite(clockMhz) ? clockMhz : null,
+                                vramUsed: Number.isFinite(vramUsedG) ? vramUsedG : null,
+                                vramFree: Number.isFinite(vramFreeG) ? vramFreeG : null,
+                                vramPercent: Number.isFinite(vramPercent) ? vramPercent : null,
+                            };
+                        }
+                    }
+                } catch (_) {
+                } finally {
+                    isNvidiaQuerying = false;
+                }
+            });
+        } catch (_) {
+            isNvidiaQuerying = false;
+        }
     }
+
+    return cachedNvidiaStats || {
+        sleeping: false,
+        name: 'NVIDIA',
+        usage: 0,
+        clock: null,
+        temp: null,
+        vramUsed: null,
+        vramFree: null,
+        vramPercent: null,
+    };
 }
 
 function queryAmd(gpus) {
@@ -230,8 +299,9 @@ function queryAmd(gpus) {
     const hwmonPath = dev ? `${dev}/hwmon` : `${path}/hwmon`;
     const hwmonDir = Gio.File.new_for_path(hwmonPath);
     if (hwmonDir.query_exists(null)) {
+        let enumerator = null;
         try {
-            const enumerator = hwmonDir.enumerate_children('standard::name', Gio.FileQueryInfoFlags.NONE, null);
+            enumerator = hwmonDir.enumerate_children('standard::name', Gio.FileQueryInfoFlags.NONE, null);
             let info;
             while ((info = enumerator.next_file(null)) !== null) {
                 const hName = info.get_name();
@@ -244,7 +314,12 @@ function queryAmd(gpus) {
                     }
                 }
             }
-        } catch (e) {}
+        } catch (e) {
+        } finally {
+            if (enumerator) {
+                try { enumerator.close(null); } catch (_) {}
+            }
+        }
     }
     if (temp === null) {
         temp = getPackageTemp();
@@ -301,7 +376,7 @@ function queryIntel(gpus, state) {
     const rc6File = readFile(`${path}/power/rc6_residency_ms`) ||
                     readFile(`${path}/gt/gt0/rc6_residency_ms`) ||
                     (devPath ? readFile(`${devPath}/power/rc6_residency_ms`) : null);
-    const now = Date.now();
+    const now = GLib.get_monotonic_time() / 1000;
     if (rc6File) {
         const rc6 = parseInt(rc6File.trim(), 10);
         if (Number.isFinite(rc6)) {
@@ -325,8 +400,9 @@ function queryIntel(gpus, state) {
     if (devPath) {
         const hwmonDir = Gio.File.new_for_path(`${devPath}/hwmon`);
         if (hwmonDir.query_exists(null)) {
+            let enumerator = null;
             try {
-                const enumerator = hwmonDir.enumerate_children('standard::name', Gio.FileQueryInfoFlags.NONE, null);
+                enumerator = hwmonDir.enumerate_children('standard::name', Gio.FileQueryInfoFlags.NONE, null);
                 let info;
                 while ((info = enumerator.next_file(null)) !== null) {
                     const hName = info.get_name();
@@ -339,7 +415,12 @@ function queryIntel(gpus, state) {
                         }
                     }
                 }
-            } catch (e) {}
+            } catch (e) {
+            } finally {
+                if (enumerator) {
+                    try { enumerator.close(null); } catch (_) {}
+                }
+            }
         }
     }
     if (temp === null) {

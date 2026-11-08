@@ -11,19 +11,27 @@ function findThermalPath() {
 
     try {
         if (tzDir.query_exists(null)) {
-            const enumerator = tzDir.enumerate_children(
-                'standard::name',
-                Gio.FileQueryInfoFlags.NONE,
-                null
-            );
-            let info;
+            let enumerator = null;
             const zones = [];
-            while ((info = enumerator.next_file(null)) !== null) {
-                const name = info.get_name();
-                if (name.startsWith('thermal_zone')) {
-                    zones.push(name);
+            try {
+                enumerator = tzDir.enumerate_children(
+                    'standard::name',
+                    Gio.FileQueryInfoFlags.NONE,
+                    null
+                );
+                let info;
+                while ((info = enumerator.next_file(null)) !== null) {
+                    const name = info.get_name();
+                    if (name.startsWith('thermal_zone')) {
+                        zones.push(name);
+                    }
+                }
+            } finally {
+                if (enumerator) {
+                    try { enumerator.close(null); } catch (_) {}
                 }
             }
+
             zones.sort((a, b) => {
                 const numA = parseInt(a.replace('thermal_zone', ''), 10) || 0;
                 const numB = parseInt(b.replace('thermal_zone', ''), 10) || 0;
@@ -59,28 +67,35 @@ function findThermalPath() {
     const hwmonDir = Gio.File.new_for_path(hwmonBase);
     try {
         if (hwmonDir.query_exists(null)) {
-            const enumerator = hwmonDir.enumerate_children(
-                'standard::name',
-                Gio.FileQueryInfoFlags.NONE,
-                null
-            );
-            let info;
-            while ((info = enumerator.next_file(null)) !== null) {
-                const name = info.get_name();
-                if (name.startsWith('hwmon')) {
-                    const nameFile = `${hwmonBase}/${name}/name`;
-                    const nameStr = readFile(nameFile);
-                    if (nameStr) {
-                        const devName = nameStr.trim().toLowerCase();
-                        if (['coretemp', 'k10temp', 'cpu'].some(p => devName.includes(p))) {
-                            for (let i = 1; i <= 5; i++) {
-                                const inputPath = `${hwmonBase}/${name}/temp${i}_input`;
-                                if (GLib.file_test(inputPath, GLib.FileTest.EXISTS)) {
-                                    return inputPath;
+            let enumerator = null;
+            try {
+                enumerator = hwmonDir.enumerate_children(
+                    'standard::name',
+                    Gio.FileQueryInfoFlags.NONE,
+                    null
+                );
+                let info;
+                while ((info = enumerator.next_file(null)) !== null) {
+                    const name = info.get_name();
+                    if (name.startsWith('hwmon')) {
+                        const nameFile = `${hwmonBase}/${name}/name`;
+                        const nameStr = readFile(nameFile);
+                        if (nameStr) {
+                            const devName = nameStr.trim().toLowerCase();
+                            if (['coretemp', 'k10temp', 'cpu'].some(p => devName.includes(p))) {
+                                for (let i = 1; i <= 5; i++) {
+                                    const inputPath = `${hwmonBase}/${name}/temp${i}_input`;
+                                    if (GLib.file_test(inputPath, GLib.FileTest.EXISTS)) {
+                                        return inputPath;
+                                    }
                                 }
                             }
                         }
                     }
+                }
+            } finally {
+                if (enumerator) {
+                    try { enumerator.close(null); } catch (_) {}
                 }
             }
         }
