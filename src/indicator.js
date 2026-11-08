@@ -159,6 +159,7 @@ export class RezMonIndicator extends Button {
         };
 
         this.spacing = spacingMap[this._settings.get_string("spacing")] || "    ";
+        this.tempUnit = this._settings.get_string("temp-unit") || "celsius";
 
         // thresholds
         this.warnThreshold = this._settings.get_int('warn-threshold') || 70;
@@ -267,6 +268,28 @@ export class RezMonIndicator extends Button {
         return null;
     }
 
+    _formatTemperature(tempC) {
+
+        if (!Number.isFinite(tempC))
+            return null;
+
+        const color = this._getTempColor(tempC);
+        let val = tempC;
+        let sym = "℃";
+
+        if (this.tempUnit === 'fahrenheit') {
+            val = (tempC * 9 / 5) + 32;
+            sym = "℉";
+        }
+
+        const text = `${val.toFixed(0)}${sym}`;
+
+        if (color)
+            return `<span foreground="${color}">${text}</span>`;
+
+        return text;
+    }
+
     /*
     ------------------------
     FORMATTERS
@@ -291,13 +314,10 @@ export class RezMonIndicator extends Button {
         if (this.cpuClock && Number.isFinite(cpu.clock))
             values.push(`${cpu.clock.toFixed(2)}GHz`);
 
-        if (this.cpuTemp && Number.isFinite(cpu.temp)) {
-            const color = this._getTempColor(cpu.temp);
-
-            if (color)
-                values.push(`<span foreground="${color}">${cpu.temp.toFixed(0)}℃</span>`);
-            else
-                values.push(`${cpu.temp.toFixed(0)}℃`);
+        if (this.cpuTemp) {
+            const tempStr = this._formatTemperature(cpu.temp);
+            if (tempStr)
+                values.push(tempStr);
         }
 
         if (values.length === 0) return "";
@@ -331,13 +351,10 @@ export class RezMonIndicator extends Button {
                 values.push(`${gpu.clock.toFixed(0)}MHz`);
         }
 
-        if (this.gpuTemp && Number.isFinite(gpu.temp)) {
-            const color = this._getTempColor(gpu.temp);
-
-            if (color)
-                values.push(`<span foreground="${color}">${gpu.temp.toFixed(0)}℃</span>`);
-            else
-                values.push(`${gpu.temp.toFixed(0)}℃`);
+        if (this.gpuTemp) {
+            const tempStr = this._formatTemperature(gpu.temp);
+            if (tempStr)
+                values.push(tempStr);
         }
 
         const vramColor = Number.isFinite(gpu.vramPercent) ? this._getColor(gpu.vramPercent) : null;

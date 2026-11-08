@@ -57,14 +57,9 @@ The core stability and performance overhaul has been completed and merged into `
 * **Target Files:** `src/metrics/gpu.js`, `src/schemas/...gschema.xml`, `src/prefs.js`, `src/indicator.js`
 * **Status:** Implemented and integrated with Multi-GPU selection (Auto, Dedicated, Integrated), D3cold sleep preservation for laptop hybrid graphics, Intel iGPU sysfs RC6 residency & package thermal fallback, AMD DRM sysfs, NVIDIA SMI metrics, and threshold coloring for temperature and VRAM.
 
-### 2.4 Temperature Unit Selection (Celsius vs Fahrenheit)
+### 2.4 Temperature Unit Selection (Celsius vs Fahrenheit) (Completed)
 * **Target Files:** `src/schemas/...gschema.xml`, `src/indicator.js`, `src/prefs.js`
-* **Motivation:**
-  Celsius is standard in Linux, but many users in North America and international regions prefer Fahrenheit.
-* **Proposed Implementation:**
-  - Add `temp-unit` enum key in `gschema.xml`: `'celsius'` (default) or `'fahrenheit'`.
-  - In `_formatCPU()`: if `this.tempUnit === 'fahrenheit'`, convert via `(temp * 9/5) + 32` and append `℉`.
-  - Update `temp-warn-threshold` and `temp-crit-threshold` in settings to adapt to the active unit.
+* **Status:** Implemented with `temp-unit` setting (Celsius / Fahrenheit), automatic temperature conversion for CPU and GPU, unit symbols (`℃` / `℉`), and accurate threshold alert coloring across both units.
 
 ---
 

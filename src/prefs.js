@@ -206,6 +206,15 @@ export default class RezMonPreferences extends ExtensionPreferences {
             () => settings.get_string("spacing")
         ));
 
+        appearanceGroup.add(this._createComboRow(
+            "Temperature Unit",
+            settings,
+            ["Celsius (°C)", "Fahrenheit (°F)"],
+            ["celsius", "fahrenheit"],
+            (value) => settings.set_string("temp-unit", value),
+            () => settings.get_string("temp-unit")
+        ));
+
         /*
         --------------------
         ADVANCED PAGE
