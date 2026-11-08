@@ -49,14 +49,9 @@ The core stability and performance overhaul has been completed and merged into `
 * **Target Files:** `src/schemas/...gschema.xml`, `src/metrics/swap.js`, `src/prefs.js`, `src/indicator.js`
 * **Status:** Implemented as a dedicated metric section (`SWAP`) with toggles for `show-swap`, `swap-used`, `swap-free`, and `swap-percent`, `/proc/meminfo` parsing, and alert threshold coloring.
 
-### 2.2 Disk I/O & Storage Utilization
-* **Target Files:** `src/metrics/disk.js`, `src/schemas/...gschema.xml`, `src/indicator.js`
-* **Motivation:**
-  Disk bottlenecks (e.g., heavy file indexing, package upgrades, Docker builds) frequently cause UI stutter that CPU/RAM monitors do not explain.
-* **Proposed Implementation:**
-  - Create `src/metrics/disk.js` parsing `/proc/diskstats` for sectors read/written on the primary root storage device.
-  - Compute read/write transfer rates (e.g., `DISK[R: 12MB/s | W: 45MB/s]` or root partition free space `DISK[45G free]`).
-  - Provide a toggle in settings under a new **Disk** preferences page.
+### 2.2 Disk I/O & Storage Utilization (Completed)
+* **Target Files:** `src/metrics/disk.js`, `src/schemas/...gschema.xml`, `src/prefs.js`, `src/indicator.js`
+* **Status:** Implemented with real-time physical block device read/write throughput rates via `/proc/diskstats`, root filesystem free/used capacity via `query_filesystem_info`, dedicated preferences page, and space warning threshold coloring.
 
 ### 2.3 GPU Utilization & VRAM Tracking (Completed)
 * **Target Files:** `src/metrics/gpu.js`, `src/schemas/...gschema.xml`, `src/prefs.js`, `src/indicator.js`

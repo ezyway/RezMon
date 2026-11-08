@@ -11,6 +11,7 @@
     <key name="show-gpu" type="b"><default>true</default></key>
     <key name="show-ram" type="b"><default>true</default></key>
     <key name="show-swap" type="b"><default>false</default></key>
+    <key name="show-disk" type="b"><default>false</default></key>
     <key name="show-net" type="b"><default>true</default></key>
 
     <key name="update-interval" type="i"><default>1</default></key>
@@ -39,6 +40,13 @@
     <key name="swap-used" type="b"><default>true</default></key>
     <key name="swap-free" type="b"><default>false</default></key>
     <key name="swap-percent" type="b"><default>true</default></key>
+
+    <!-- NEW: DISK -->
+    <key name="disk-read" type="b"><default>true</default></key>
+    <key name="disk-write" type="b"><default>true</default></key>
+    <key name="disk-space-used" type="b"><default>false</default></key>
+    <key name="disk-space-free" type="b"><default>false</default></key>
+    <key name="disk-space-percent" type="b"><default>false</default></key>
 
     <!-- NEW: NET -->
     <key name="net-down" type="b"><default>true</default></key>

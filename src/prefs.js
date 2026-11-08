@@ -31,6 +31,7 @@ export default class RezMonPreferences extends ExtensionPreferences {
         generalGroup.add(this._createSwitchRow("Show GPU", settings, "show-gpu"));
         generalGroup.add(this._createSwitchRow("Show RAM", settings, "show-ram"));
         generalGroup.add(this._createSwitchRow("Show SWAP", settings, "show-swap"));
+        generalGroup.add(this._createSwitchRow("Show DISK", settings, "show-disk"));
         generalGroup.add(this._createSwitchRow("Show NET", settings, "show-net"));
 
         /*
@@ -120,6 +121,27 @@ export default class RezMonPreferences extends ExtensionPreferences {
         swapGroup.add(this._createSwitchRow("Used", settings, "swap-used"));
         swapGroup.add(this._createSwitchRow("Free", settings, "swap-free"));
         swapGroup.add(this._createSwitchRow("Percent", settings, "swap-percent"));
+
+        /*
+        --------------------
+        DISK PAGE
+        --------------------
+        */
+
+        const diskPage = new Adw.PreferencesPage({
+            title: 'Disk',
+            icon_name: 'drive-harddisk-symbolic'
+        });
+        window.add(diskPage);
+
+        const diskGroup = new Adw.PreferencesGroup({ title: "Disk Settings" });
+        diskPage.add(diskGroup);
+
+        diskGroup.add(this._createSwitchRow("Read Rate", settings, "disk-read"));
+        diskGroup.add(this._createSwitchRow("Write Rate", settings, "disk-write"));
+        diskGroup.add(this._createSwitchRow("Space Used", settings, "disk-space-used"));
+        diskGroup.add(this._createSwitchRow("Space Free", settings, "disk-space-free"));
+        diskGroup.add(this._createSwitchRow("Space %", settings, "disk-space-percent"));
 
         /*
         --------------------

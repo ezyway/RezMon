@@ -13,6 +13,7 @@ import { updateCPU } from './metrics/cpu.js';
 import { updateGPU } from './metrics/gpu.js';
 import { updateRAM } from './metrics/ram.js';
 import { updateSWAP } from './metrics/swap.js';
+import { updateDisk } from './metrics/disk.js';
 import { updateNET } from './metrics/net.js';
 
 export class RezMonIndicator extends Button {
@@ -52,6 +53,10 @@ export class RezMonIndicator extends Button {
 
         this.prev_used = 0;
         this.prev_total = 0;
+
+        this.prev_disk_read = 0;
+        this.prev_disk_write = 0;
+        this.prev_disk_time = 0;
     }
 
     _buildMenu() {
@@ -100,6 +105,7 @@ export class RezMonIndicator extends Button {
         this.showGPU = this._settings.get_boolean('show-gpu');
         this.showRAM = this._settings.get_boolean('show-ram');
         this.showSWAP = this._settings.get_boolean('show-swap');
+        this.showDisk = this._settings.get_boolean('show-disk');
         this.showNET = this._settings.get_boolean('show-net');
 
         // cpu toggles
@@ -125,6 +131,13 @@ export class RezMonIndicator extends Button {
         this.swapUsed = this._settings.get_boolean('swap-used');
         this.swapFree = this._settings.get_boolean('swap-free');
         this.swapPercent = this._settings.get_boolean('swap-percent');
+
+        // disk toggles
+        this.diskRead = this._settings.get_boolean('disk-read');
+        this.diskWrite = this._settings.get_boolean('disk-write');
+        this.diskSpaceUsed = this._settings.get_boolean('disk-space-used');
+        this.diskSpaceFree = this._settings.get_boolean('disk-space-free');
+        this.diskSpacePercent = this._settings.get_boolean('disk-space-percent');
 
         // net toggles
         this.netDown = this._settings.get_boolean('net-down');
@@ -199,6 +212,12 @@ export class RezMonIndicator extends Button {
         if (this.showSWAP) {
             const swap = updateSWAP(this);
             const formatted = this._formatSWAP(swap);
+            if (formatted) parts.push(formatted);
+        }
+
+        if (this.showDisk) {
+            const disk = updateDisk(this);
+            const formatted = this._formatDisk(disk);
             if (formatted) parts.push(formatted);
         }
 
@@ -407,6 +426,62 @@ export class RezMonIndicator extends Button {
         if (values.length === 0) return "";
 
         return `SWAP${this.b_open}${values.join(` ${this.delimiter} `)}${this.b_close}`;
+    }
+
+    _formatDisk(disk) {
+
+        if (!disk) return "";
+
+        const values = [];
+
+        const formatRate = (bytesPerSec) => {
+            const units = ['B/s', 'KB/s', 'MB/s', 'GB/s'];
+            let u = 0;
+            let rate = bytesPerSec;
+            while (rate > 999 && u < units.length - 1) {
+                rate /= 1024;
+                u++;
+            }
+            return `${rate.toFixed(0).padStart(2, '0')}${units[u]}`;
+        };
+
+        if (this.diskRead) {
+            values.push(`R: ${formatRate(disk.read || 0)}`);
+        }
+
+        if (this.diskWrite) {
+            values.push(`W: ${formatRate(disk.write || 0)}`);
+        }
+
+        const formatSpace = (gb) => {
+            if (gb >= 1024)
+                return `${(gb / 1024).toFixed(1)}T`;
+            return `${gb.toFixed(1)}G`;
+        };
+
+        const spaceColor = Number.isFinite(disk.spacePercent) ? this._getColor(disk.spacePercent) : null;
+
+        if (this.diskSpaceUsed && Number.isFinite(disk.spaceUsed)) {
+            if (spaceColor && !this.diskSpacePercent)
+                values.push(`<span foreground="${spaceColor}">${formatSpace(disk.spaceUsed)}</span>`);
+            else
+                values.push(`${formatSpace(disk.spaceUsed)}`);
+        }
+
+        if (this.diskSpaceFree && Number.isFinite(disk.spaceFree)) {
+            values.push(`${formatSpace(disk.spaceFree)}`);
+        }
+
+        if (this.diskSpacePercent && Number.isFinite(disk.spacePercent)) {
+            if (spaceColor)
+                values.push(`<span foreground="${spaceColor}">${disk.spacePercent.toFixed(0)}%</span>`);
+            else
+                values.push(`${disk.spacePercent.toFixed(0)}%`);
+        }
+
+        if (values.length === 0) return "";
+
+        return `DISK${this.b_open}${values.join(` ${this.delimiter} `)}${this.b_close}`;
     }
 
     _formatNET(net) {
