@@ -12,6 +12,7 @@ import { PopupMenuItem } from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import { updateCPU } from './metrics/cpu.js';
 import { updateGPU } from './metrics/gpu.js';
 import { updateRAM } from './metrics/ram.js';
+import { updateSWAP } from './metrics/swap.js';
 import { updateNET } from './metrics/net.js';
 
 export class RezMonIndicator extends Button {
@@ -98,6 +99,7 @@ export class RezMonIndicator extends Button {
         this.showCPU = this._settings.get_boolean('show-cpu');
         this.showGPU = this._settings.get_boolean('show-gpu');
         this.showRAM = this._settings.get_boolean('show-ram');
+        this.showSWAP = this._settings.get_boolean('show-swap');
         this.showNET = this._settings.get_boolean('show-net');
 
         // cpu toggles
@@ -118,6 +120,11 @@ export class RezMonIndicator extends Button {
         this.ramUsed = this._settings.get_boolean('ram-used');
         this.ramFree = this._settings.get_boolean('ram-free');
         this.ramPercent = this._settings.get_boolean('ram-percent');
+
+        // swap toggles
+        this.swapUsed = this._settings.get_boolean('swap-used');
+        this.swapFree = this._settings.get_boolean('swap-free');
+        this.swapPercent = this._settings.get_boolean('swap-percent');
 
         // net toggles
         this.netDown = this._settings.get_boolean('net-down');
@@ -186,6 +193,12 @@ export class RezMonIndicator extends Button {
         if (this.showRAM) {
             const ram = updateRAM(this);
             const formatted = this._formatRAM(ram);
+            if (formatted) parts.push(formatted);
+        }
+
+        if (this.showSWAP) {
+            const swap = updateSWAP(this);
+            const formatted = this._formatSWAP(swap);
             if (formatted) parts.push(formatted);
         }
 
@@ -365,6 +378,35 @@ export class RezMonIndicator extends Button {
         if (values.length === 0) return "";
 
         return `RAM${this.b_open}${values.join(` ${this.delimiter} `)}${this.b_close}`;
+    }
+
+    _formatSWAP(swap) {
+
+        if (!swap || !swap.hasSwap) return "";
+
+        const values = [];
+        const swapColor = Number.isFinite(swap.percent) ? this._getColor(swap.percent) : null;
+
+        if (this.swapUsed && Number.isFinite(swap.used)) {
+            if (swapColor && !this.swapPercent)
+                values.push(`<span foreground="${swapColor}">${swap.used.toFixed(1)}G</span>`);
+            else
+                values.push(`${swap.used.toFixed(1)}G`);
+        }
+
+        if (this.swapFree && Number.isFinite(swap.free))
+            values.push(`${swap.free.toFixed(1)}G`);
+
+        if (this.swapPercent && Number.isFinite(swap.percent)) {
+            if (swapColor)
+                values.push(`<span foreground="${swapColor}">${swap.percent.toFixed(0)}%</span>`);
+            else
+                values.push(`${swap.percent.toFixed(0)}%`);
+        }
+
+        if (values.length === 0) return "";
+
+        return `SWAP${this.b_open}${values.join(` ${this.delimiter} `)}${this.b_close}`;
     }
 
     _formatNET(net) {

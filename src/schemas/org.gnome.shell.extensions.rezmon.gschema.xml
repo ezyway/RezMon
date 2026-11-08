@@ -10,6 +10,7 @@
     <key name="show-cpu" type="b"><default>true</default></key>
     <key name="show-gpu" type="b"><default>true</default></key>
     <key name="show-ram" type="b"><default>true</default></key>
+    <key name="show-swap" type="b"><default>false</default></key>
     <key name="show-net" type="b"><default>true</default></key>
 
     <key name="update-interval" type="i"><default>1</default></key>
@@ -33,6 +34,11 @@
     <key name="ram-used" type="b"><default>true</default></key>
     <key name="ram-free" type="b"><default>true</default></key>
     <key name="ram-percent" type="b"><default>false</default></key>
+
+    <!-- NEW: SWAP -->
+    <key name="swap-used" type="b"><default>true</default></key>
+    <key name="swap-free" type="b"><default>false</default></key>
+    <key name="swap-percent" type="b"><default>true</default></key>
 
     <!-- NEW: NET -->
     <key name="net-down" type="b"><default>true</default></key>

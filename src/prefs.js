@@ -30,6 +30,7 @@ export default class RezMonPreferences extends ExtensionPreferences {
         generalGroup.add(this._createSwitchRow("Show CPU", settings, "show-cpu"));
         generalGroup.add(this._createSwitchRow("Show GPU", settings, "show-gpu"));
         generalGroup.add(this._createSwitchRow("Show RAM", settings, "show-ram"));
+        generalGroup.add(this._createSwitchRow("Show SWAP", settings, "show-swap"));
         generalGroup.add(this._createSwitchRow("Show NET", settings, "show-net"));
 
         /*
@@ -100,6 +101,25 @@ export default class RezMonPreferences extends ExtensionPreferences {
         ramGroup.add(this._createSwitchRow("Used", settings, "ram-used"));
         ramGroup.add(this._createSwitchRow("Free", settings, "ram-free"));
         ramGroup.add(this._createSwitchRow("Percent", settings, "ram-percent"));
+
+        /*
+        --------------------
+        SWAP PAGE
+        --------------------
+        */
+
+        const swapPage = new Adw.PreferencesPage({
+            title: 'SWAP',
+            icon_name: 'drive-harddisk-symbolic'
+        });
+        window.add(swapPage);
+
+        const swapGroup = new Adw.PreferencesGroup({ title: "SWAP Settings" });
+        swapPage.add(swapGroup);
+
+        swapGroup.add(this._createSwitchRow("Used", settings, "swap-used"));
+        swapGroup.add(this._createSwitchRow("Free", settings, "swap-free"));
+        swapGroup.add(this._createSwitchRow("Percent", settings, "swap-percent"));
 
         /*
         --------------------

@@ -45,15 +45,9 @@ The core stability and performance overhaul has been completed and merged into `
 
 ## 2. New Resource Metrics & Sensors
 
-### 2.1 Swap Memory Monitoring
-* **Target Files:** `src/schemas/...gschema.xml`, `src/metrics/ram.js`, `src/prefs.js`, `src/indicator.js`
-* **Motivation:**
-  Developers, compilation tasks, machine learning workloads, and virtual machines often run low on memory before physical RAM completely fills. Tracking swap activity alerts users before the Linux kernel OOM (Out Of Memory) killer freezes the desktop.
-* **Proposed Implementation:**
-  - `/proc/meminfo` already exposes `SwapTotal` and `SwapFree`.
-  - Extend `updateRAM()` to parse `SwapTotal` and `SwapFree` (cached during the early-exit loop).
-  - Add schema toggles: `swap-used` (default: `false`), `swap-free` (default: `false`), `swap-percent` (default: `false`).
-  - Add an alert threshold when swap utilization exceeds critical levels (e.g. $\ge 80\%$).
+### 2.1 Swap Memory Monitoring (Completed)
+* **Target Files:** `src/schemas/...gschema.xml`, `src/metrics/swap.js`, `src/prefs.js`, `src/indicator.js`
+* **Status:** Implemented as a dedicated metric section (`SWAP`) with toggles for `show-swap`, `swap-used`, `swap-free`, and `swap-percent`, `/proc/meminfo` parsing, and alert threshold coloring.
 
 ### 2.2 Disk I/O & Storage Utilization
 * **Target Files:** `src/metrics/disk.js`, `src/schemas/...gschema.xml`, `src/indicator.js`
