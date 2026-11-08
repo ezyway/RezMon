@@ -142,7 +142,7 @@
 
 ## 5. Completed Features & Enhancements
 
-- **v21 Audit & Foundation Overhaul**: Fixed unbounded network formatting loop, eliminated multi-gigabyte memory spikes, removed synchronous bash forks, and optimized file I/O with early-exit procfs parsing.
+- **v21 Audit & Foundation Overhaul**: Fixed unbounded network loop hang, eliminated multi-gigabyte memory spikes, removed sync bash forks, and optimized file I/O with early-exit procfs parsing.
 - **Swap Memory Monitoring (2.1)**: Dedicated SWAP metric section with used/free/percentage tracking, `/proc/meminfo` parsing, and alert threshold coloring.
 - **Disk I/O & Storage Utilization (2.2)**: Real-time physical block device read/write throughput rates via `/proc/diskstats`, root (`/`) storage tracking, and threshold warning alerts.
 - **GPU Utilization & VRAM Tracking (2.3)**: Multi-GPU support (Auto/Dedicated/Integrated), Intel RC6 sysfs, AMD DRM sysfs, NVIDIA SMI, VRAM tracking, and laptop D3cold sleep preservation.
