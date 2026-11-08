@@ -70,12 +70,15 @@ export function updateNET(state) {
 
         for (let i = 2; i < lines.length; i++) {
             const l = lines[i].trim();
-
-            if (l.startsWith(ifacePrefix)) {
-                const v = l.split(/\s+/);
-                rx = parseInt(v[1], 10) || 0;
-                tx = parseInt(v[9], 10) || 0;
-                break;
+            const colonIdx = l.indexOf(':');
+            if (colonIdx !== -1) {
+                const ifaceName = l.substring(0, colonIdx).trim();
+                if (ifaceName === iface) {
+                    const stats = l.substring(colonIdx + 1).trim().split(/\s+/);
+                    rx = parseInt(stats[0], 10) || 0;
+                    tx = parseInt(stats[8], 10) || 0;
+                    break;
+                }
             }
         }
 

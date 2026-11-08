@@ -190,12 +190,17 @@ export class RezMonIndicator extends Button {
             { bin: 'ptyxis', arg: '--' },
             { bin: 'kgx', arg: '-e' },
             { bin: 'gnome-terminal', arg: '--' },
+            { bin: 'kitty', arg: '-e' },
+            { bin: 'alacritty', arg: '-e' },
+            { bin: 'wezterm', arg: 'start --' },
+            { bin: 'foot', arg: '' },
             { bin: 'x-terminal-emulator', arg: '-e' },
             { bin: 'xterm', arg: '-e' },
         ];
         for (const t of terminals) {
             if (GLib.find_program_in_path(t.bin)) {
-                this._launchApp(`${t.bin} ${t.arg} ${cmd}`);
+                const fullCmd = t.arg ? `${t.bin} ${t.arg} ${cmd}` : `${t.bin} ${cmd}`;
+                this._launchApp(fullCmd);
                 return true;
             }
         }
@@ -300,19 +305,23 @@ export class RezMonIndicator extends Button {
 
         // Top Resource Consumers
         if (this._topProcesses) {
-            lines.push(``);
-            lines.push(`<b>Top Consumers</b>`);
-            if (this._topProcesses.topCpu && this._topProcesses.topCpu.length > 0) {
-                const cpuItems = this._topProcesses.topCpu.map(p =>
-                    `<span alpha="75%">${GLib.markup_escape_text(p.name, -1)}</span> <b>${Math.round(p.cpu)}%</b>`
-                );
-                lines.push(`  CPU: ${cpuItems.join('  │  ')}`);
-            }
-            if (this._topProcesses.topMem && this._topProcesses.topMem.length > 0) {
-                const memItems = this._topProcesses.topMem.map(p =>
-                    `<span alpha="75%">${GLib.markup_escape_text(p.name, -1)}</span> <b>${p.mem.toFixed(1)}%</b>`
-                );
-                lines.push(`  RAM: ${memItems.join('  │  ')}`);
+            const hasCpu = this._topProcesses.topCpu && this._topProcesses.topCpu.length > 0;
+            const hasMem = this._topProcesses.topMem && this._topProcesses.topMem.length > 0;
+            if (hasCpu || hasMem) {
+                lines.push(``);
+                lines.push(`<b>Top Consumers</b>`);
+                if (hasCpu) {
+                    const cpuItems = this._topProcesses.topCpu.map(p =>
+                        `<span alpha="75%">${GLib.markup_escape_text(p.name, -1)}</span> <b>${Math.round(p.cpu)}%</b>`
+                    );
+                    lines.push(`  CPU: ${cpuItems.join('  │  ')}`);
+                }
+                if (hasMem) {
+                    const memItems = this._topProcesses.topMem.map(p =>
+                        `<span alpha="75%">${GLib.markup_escape_text(p.name, -1)}</span> <b>${p.mem.toFixed(1)}%</b>`
+                    );
+                    lines.push(`  RAM: ${memItems.join('  │  ')}`);
+                }
             }
         }
 
