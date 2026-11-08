@@ -5,6 +5,7 @@ import Gio from 'gi://Gio';
 import St from 'gi://St';
 import Clutter from 'gi://Clutter';
 import GObject from 'gi://GObject';
+import Pango from 'gi://Pango';
 
 import { Button } from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import { PopupMenuItem, PopupBaseMenuItem, PopupSeparatorMenuItem } from 'resource:///org/gnome/shell/ui/popupMenu.js';
@@ -45,6 +46,7 @@ export class RezMonIndicator extends Button {
         this._buildMenu();
 
         this._loadCpuHardwareInfo();
+        this._refreshTopProcesses();
         this._updateMetrics();
     }
 
@@ -73,12 +75,18 @@ export class RezMonIndicator extends Button {
             can_focus: false,
             style_class: 'rezmon-menu-dashboard',
         });
+        this._dashboardItem.set_style('width: 360px; min-width: 360px; max-width: 360px;');
         this._dashboardLabel = new St.Label({
-            style: 'padding: 4px 6px; min-width: 320px; font-size: 9.5pt; line-height: 1.4;',
+            style: 'padding: 6px 10px; width: 360px; min-width: 360px; max-width: 360px; font-size: 9.5pt; line-height: 1.45;',
         });
         this._dashboardLabel.clutter_text.set_use_markup(true);
+        this._dashboardLabel.clutter_text.set_ellipsize(Pango.EllipsizeMode.END);
         this._dashboardItem.add_child(this._dashboardLabel);
         this.menu.addMenuItem(this._dashboardItem);
+
+        if (this.menu && this.menu.box) {
+            this.menu.box.set_style('min-width: 360px; max-width: 360px;');
+        }
 
         // 2. Separator
         this.menu.addMenuItem(new PopupSeparatorMenuItem());
@@ -235,7 +243,7 @@ export class RezMonIndicator extends Button {
         const cpuBar = this._makeProgressBar(cpuPct, 14);
         const cpuClock = Number.isFinite(cpu?.clock) ? `  │  ${cpu.clock.toFixed(2)} GHz` : '';
         const cpuTemp = Number.isFinite(cpu?.temp) ? `  │  ${this._formatTemperature(cpu.temp)}` : '';
-        lines.push(`<b>CPU</b>  <span alpha="70%">${GLib.markup_escape_text(cpuInfo.model, -1)}</span>`);
+        lines.push(`<b>⚡ CPU</b>  <span alpha="70%">${GLib.markup_escape_text(cpuInfo.model, -1)}</span>`);
         lines.push(`  <span font_family="monospace">${cpuBar}</span> <b>${cpuPct}%</b>${cpuClock}${cpuTemp}`);
 
         // Memory (RAM)
@@ -247,7 +255,7 @@ export class RezMonIndicator extends Button {
             const ramTotal = ((ram.used || 0) + (ram.free || 0)).toFixed(1);
             const ramFree = (ram.free || 0).toFixed(1);
             lines.push(``);
-            lines.push(`<b>RAM</b>  <b>${ramUsed} GB</b> / ${ramTotal} GB (<span alpha="70%">Free: ${ramFree} GB</span>)`);
+            lines.push(`<b>🧠 RAM</b>  <b>${ramUsed} GB</b> / ${ramTotal} GB (<span alpha="70%">Free: ${ramFree} GB</span>)`);
             lines.push(`  <span font_family="monospace">${ramBar}</span> <b>${ramPct}%</b>`);
         }
 
@@ -259,7 +267,7 @@ export class RezMonIndicator extends Button {
             const swapUsed = (swap.used || 0).toFixed(1);
             const swapTotal = ((swap.used || 0) + (swap.free || 0)).toFixed(1);
             lines.push(``);
-            lines.push(`<b>SWAP</b>  <b>${swapUsed} GB</b> / ${swapTotal} GB`);
+            lines.push(`<b>⇄ SWAP</b>  <b>${swapUsed} GB</b> / ${swapTotal} GB`);
             lines.push(`  <span font_family="monospace">${swapBar}</span> <b>${swapPct}%</b>`);
         }
 
@@ -269,13 +277,13 @@ export class RezMonIndicator extends Button {
             const gpuTitle = gpu.name ? GLib.markup_escape_text(gpu.name, -1) : 'GPU';
             lines.push(``);
             if (gpu.sleeping) {
-                lines.push(`<b>GPU</b>  <span alpha="70%">${gpuTitle}</span> <span alpha="50%">(D3cold Sleep)</span>`);
+                lines.push(`<b>🎮 GPU</b>  <span alpha="70%">${gpuTitle}</span> <span alpha="50%">(D3cold Sleep)</span>`);
             } else {
                 const gpuPct = Number.isFinite(gpu.usage) ? Math.round(gpu.usage) : 0;
                 const gpuBar = this._makeProgressBar(gpuPct, 14);
                 const gpuTemp = Number.isFinite(gpu.temp) ? `  │  ${this._formatTemperature(gpu.temp)}` : '';
                 const vram = Number.isFinite(gpu.vramUsed) ? `  │  VRAM: <b>${gpu.vramUsed.toFixed(1)}G</b>` : '';
-                lines.push(`<b>GPU</b>  <span alpha="70%">${gpuTitle}</span>`);
+                lines.push(`<b>🎮 GPU</b>  <span alpha="70%">${gpuTitle}</span>`);
                 lines.push(`  <span font_family="monospace">${gpuBar}</span> <b>${gpuPct}%</b>${gpuTemp}${vram}`);
             }
         }
@@ -290,7 +298,7 @@ export class RezMonIndicator extends Button {
             const rRate = this._formatDataRate(disk.read || 0);
             const wRate = this._formatDataRate(disk.write || 0);
             lines.push(``);
-            lines.push(`<b>Storage (/)</b>  <b>${usedStr}</b> / ${totalStr}`);
+            lines.push(`<b>💽 Storage (/)</b>  <b>${usedStr}</b> / ${totalStr}`);
             lines.push(`  <span font_family="monospace">${diskBar}</span> <b>${diskPct}%</b>  │  I/O: R ${rRate}  W ${wRate}`);
         }
 
@@ -301,29 +309,33 @@ export class RezMonIndicator extends Button {
             const down = this._formatDataRate(net.down || 0);
             const up = this._formatDataRate(net.up || 0);
             lines.push(``);
-            lines.push(`<b>Network (${GLib.markup_escape_text(iface, -1)})</b>  ↓ <b>${down}</b>  │  ↑ <b>${up}</b>`);
+            lines.push(`<b>📶 Network (${GLib.markup_escape_text(iface, -1)})</b>  ↓ <b>${down}</b>  │  ↑ <b>${up}</b>`);
         }
 
-        // Top Resource Consumers
-        if (this._topProcesses) {
-            const hasCpu = this._topProcesses.topCpu && this._topProcesses.topCpu.length > 0;
-            const hasMem = this._topProcesses.topMem && this._topProcesses.topMem.length > 0;
-            if (hasCpu || hasMem) {
-                lines.push(``);
-                lines.push(`<b>Top Consumers</b>`);
-                if (hasCpu) {
-                    const cpuItems = this._topProcesses.topCpu.map(p =>
-                        `<span alpha="75%">${GLib.markup_escape_text(p.name, -1)}</span> <b>${Math.round(p.cpu)}%</b>`
-                    );
-                    lines.push(`  CPU: ${cpuItems.join('  │  ')}`);
-                }
-                if (hasMem) {
-                    const memItems = this._topProcesses.topMem.map(p =>
-                        `<span alpha="75%">${GLib.markup_escape_text(p.name, -1)}</span> <b>${p.mem.toFixed(1)}%</b>`
-                    );
-                    lines.push(`  RAM: ${memItems.join('  │  ')}`);
+        // Top Resource Consumers (Vertical list)
+        lines.push(``);
+        lines.push(`<b>Active Processes</b>`);
+        if (this._topProcesses && (this._topProcesses.topCpu?.length > 0 || this._topProcesses.topMem?.length > 0)) {
+            if (this._topProcesses.topCpu?.length > 0) {
+                lines.push(`  <span alpha="70%">Top CPU:</span>`);
+                for (const p of this._topProcesses.topCpu) {
+                    const name = p.name.length > 18 ? `${p.name.substring(0, 17)}…` : p.name;
+                    const paddedName = name.padEnd(19, ' ');
+                    const pct = `${Math.round(p.cpu)}%`.padStart(4, ' ');
+                    lines.push(`    <span font_family="monospace">• ${GLib.markup_escape_text(paddedName, -1)} <b>${pct}</b></span>`);
                 }
             }
+            if (this._topProcesses.topMem?.length > 0) {
+                lines.push(`  <span alpha="70%">Top Memory:</span>`);
+                for (const p of this._topProcesses.topMem) {
+                    const name = p.name.length > 18 ? `${p.name.substring(0, 17)}…` : p.name;
+                    const paddedName = name.padEnd(19, ' ');
+                    const pct = `${p.mem.toFixed(1)}%`.padStart(5, ' ');
+                    lines.push(`    <span font_family="monospace">• ${GLib.markup_escape_text(paddedName, -1)} <b>${pct}</b></span>`);
+                }
+            }
+        } else {
+            lines.push(`  <span alpha="50%">Fetching active processes…</span>`);
         }
 
         return lines.join('\n');
@@ -582,14 +594,26 @@ export class RezMonIndicator extends Button {
 
         if (this.labelStyle === 'symbol') {
             const symbols = {
-                cpu: "⚙",
-                gpu: "🖥",
-                ram: "🖴",
+                cpu: "⚡",
+                gpu: "🎮",
+                ram: "🧠",
                 swap: "⇄",
-                disk: "💾",
-                net: "🌐"
+                disk: "💽",
+                net: "📶"
             };
             return symbols[type] || "";
+        }
+
+        if (this.labelStyle === 'both') {
+            const both = {
+                cpu: "⚡ CPU",
+                gpu: "🎮 GPU",
+                ram: "🧠 RAM",
+                swap: "⇄ SWAP",
+                disk: "💽 DISK",
+                net: "📶 NET"
+            };
+            return both[type] || "";
         }
 
         const text = {
@@ -887,8 +911,19 @@ export class RezMonIndicator extends Button {
                 if (line.startsWith('model name')) {
                     if (model === 'CPU') {
                         const parts = line.split(':');
-                        if (parts[1])
-                            model = parts[1].trim().replace(/\s+/g, ' ');
+                        if (parts[1]) {
+                            model = parts[1]
+                                .trim()
+                                .replace(/\(R\)|\(TM\)/gi, '')
+                                .replace(/\s+CPU\s*@.*/gi, '')
+                                .replace(/\s+Processor\s*@.*/gi, '')
+                                .replace(/\s+\d+-Core Processor.*/gi, '')
+                                .replace(/\s+/g, ' ')
+                                .trim();
+                            if (model.length > 25) {
+                                model = `${model.substring(0, 24)}…`;
+                            }
+                        }
                     }
                 } else if (line.startsWith('processor')) {
                     cores++;
@@ -896,7 +931,7 @@ export class RezMonIndicator extends Button {
             }
         } catch (_) {}
 
-        this._cpuHwInfo = { model, cores: cores || 1 };
+        this._cpuHwInfo = { model: model || 'CPU', cores: cores || 1 };
     }
 
     _getCpuHardwareInfo() {

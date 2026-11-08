@@ -261,8 +261,13 @@ export default class RezMonPreferences extends ExtensionPreferences {
         appearanceGroup.add(this._createComboRow(
             _("Label Style"),
             settings,
-            [_("Text (CPU, RAM, ...)"), _("Symbols (⚙, 🖥, ...)"), _("None (Compact)")],
-            ["text", "symbol", "none"],
+            [
+                _("Symbols (⚡, 🎮, 🧠, ...)"),
+                _("Text (CPU, GPU, RAM, ...)"),
+                _("Symbols & Text (⚡ CPU, ...)"),
+                _("None (Compact)")
+            ],
+            ["symbol", "text", "both", "none"],
             (value) => settings.set_string("label-style", value),
             () => settings.get_string("label-style")
         ));
