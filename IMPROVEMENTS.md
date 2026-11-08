@@ -7,9 +7,8 @@
 ## Table of Contents
 
 1. [Dropdown Menu Dashboard & Utilities](#1-dropdown-menu-dashboard--utilities)
-   - [1.1 Detailed System Summary Dashboard](#11-detailed-system-summary-dashboard)
-   - [1.2 Top Resource Consumers (Process Snapshot)](#12-top-resource-consumers-process-snapshot)
-   - [1.3 Dynamic Terminal System Monitor Launchers (`btop`, `htop`, `resources`)](#13-dynamic-terminal-system-monitor-launchers-btop-htop-resources)
+   - [1.1 Top Resource Consumers (Process Snapshot)](#11-top-resource-consumers-process-snapshot)
+   - [1.2 Dynamic Terminal System Monitor Launchers (`btop`, `htop`, `resources`)](#12-dynamic-terminal-system-monitor-launchers-btop-htop-resources)
 2. [Network & Data Accuracy Enhancements](#2-network--data-accuracy-enhancements)
    - [2.1 Interface Selection (Auto vs Specific Interface / VPN)](#21-interface-selection-auto-vs-specific-interface--vpn)
    - [2.2 Independent Up/Down Scaling & Fractional Decimals](#22-independent-updown-scaling--fractional-decimals)
@@ -25,32 +24,7 @@
 
 ## 1. Dropdown Menu Dashboard & Utilities
 
-### 1.1 Detailed System Summary Dashboard
-* **Target Files:** `src/indicator.js`
-* **Motivation:**
-  The panel dropdown menu currently contains only "System Monitor" and "Open Settings". The dropdown popup is ideal for displaying a clean, read-only system summary card.
-* **Proposed Layout:**
-  ```
-  +-------------------------------------------------+
-  | RezMon Quick Status                             |
-  +-------------------------------------------------+
-  | CPU:  Intel Core i7-13700H (14 cores, 20 threads)|
-  | Clock: 4.20 GHz max | Core Temp: 54°C            |
-  |                                                 |
-  | Memory:                                         |
-  | [████████████░░░░░░░░░░░░░░░░░░] 8.2G / 16.0G   |
-  | Swap: 0.2G / 8.0G | Buffers/Cached: 4.1G        |
-  |                                                 |
-  | Network:                                        |
-  | Interface: wlp0s20f3 (WiFi)                     |
-  | Local IP: 192.168.1.42                          |
-  | Session Total: ↓ 1.4 GB | ↑ 320 MB              |
-  +-------------------------------------------------+
-  | [ Launch System Monitor ]  [ Extension Settings ]|
-  +-------------------------------------------------+
-  ```
-
-### 1.2 Top Resource Consumers (Process Snapshot)
+### 1.1 Top Resource Consumers (Process Snapshot)
 * **Target Files:** `src/indicator.js`, `src/metrics/top.js`
 * **Motivation:**
   When a user notices CPU or RAM spike to 100%, clicking the indicator should immediately identify which process is causing the spike (e.g. `chrome`, `cargo`, `docker`) without opening heavy external tools.
@@ -58,7 +32,7 @@
   - Read top 3 CPU and RAM consumers on dropdown menu open (deferred until menu is toggled, zero background overhead).
   - Display process names and PID/percentage directly in the menu.
 
-### 1.3 Dynamic Terminal System Monitor Launchers (`btop`, `htop`, `resources`)
+### 1.2 Dynamic Terminal System Monitor Launchers (`btop`, `htop`, `resources`)
 * **Target Files:** `src/indicator.js`
 * **Motivation:**
   Many advanced users use CLI monitors like `btop` or `htop`, or Flatpak apps like `Resources` (`net.lutris.Resources` / `resources`).
@@ -133,7 +107,7 @@
 | Phase | Focus Area | Pending Milestone Features | Status |
 | :--- | :--- | :--- | :--- |
 | **Phase 1** | **Network Accuracy** | Interface Selection (`tun0`/VPN), Independent Up/Down Scaling & Fractional Decimals | Ready to Implement |
-| **Phase 2** | **Dropdown Dashboard** | Dropdown System Summary Card, Top Resource Consumers (CPU/RAM snapshot) | Planned |
+| **Phase 2** | **Dropdown Dashboard** | Dropdown System Summary Card (Done), Top Resource Consumers (CPU/RAM snapshot) | In Progress |
 | **Phase 3** | **Utilities & Launchers** | Dynamic CLI / App Monitor Launchers (`btop`, `htop`, `resources`) | Planned |
 | **Phase 4** | **Data Tracking** | Cumulative Session Data Counters (session RX/TX) | Planned |
 | **Phase 5** | **i18n & Automation** | Gettext Localization (`po/`), GitHub Actions CI/CD, Makefile developer targets | Planned |
@@ -152,6 +126,7 @@
 - **Panel Position & Clock Repositioning (3.3)**: Position RezMon in Left/Center/Right panel boxes with order priority, plus Ubuntu centered clock repositioning with safe restore on extension disable.
 - **Customizable Metric Ordering (3.4)**: Dynamic metric sequence evaluation with an interactive move up/down UI in General preferences and one-click reset to default.
 - **Rich Hover Tooltip (3.5)**: Instant multiline hardware overview card on hover with CPU/GPU/RAM/SWAP/Disk/Network details, live updates, and non-blocking click-through.
+- **Dropdown System Summary Dashboard (4.1)**: Embedded live quick status overview card in the popup menu with progress bars and CPU/RAM/SWAP/GPU/Disk/Network telemetry.
 
 ---
 

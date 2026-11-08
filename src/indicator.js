@@ -7,7 +7,7 @@ import Clutter from 'gi://Clutter';
 import GObject from 'gi://GObject';
 
 import { Button } from 'resource:///org/gnome/shell/ui/panelMenu.js';
-import { PopupMenuItem } from 'resource:///org/gnome/shell/ui/popupMenu.js';
+import { PopupMenuItem, PopupBaseMenuItem, PopupSeparatorMenuItem } from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import { uiGroup } from 'resource:///org/gnome/shell/ui/main.js';
 
 import { readFileLines } from './utils/file.js';
@@ -66,8 +66,24 @@ export class RezMonIndicator extends Button {
 
         this.menu.removeAll();
 
-        const monitorItem = new PopupMenuItem("System Monitor");
+        // 1. Dashboard summary card
+        this._dashboardItem = new PopupBaseMenuItem({
+            reactive: false,
+            can_focus: false,
+            style_class: 'rezmon-menu-dashboard',
+        });
+        this._dashboardLabel = new St.Label({
+            style: 'padding: 4px 6px; min-width: 320px; font-size: 9.5pt; line-height: 1.4;',
+        });
+        this._dashboardLabel.clutter_text.set_use_markup(true);
+        this._dashboardItem.add_child(this._dashboardLabel);
+        this.menu.addMenuItem(this._dashboardItem);
 
+        // 2. Separator
+        this.menu.addMenuItem(new PopupSeparatorMenuItem());
+
+        // 3. System Monitor launcher
+        const monitorItem = new PopupMenuItem("System Monitor");
         monitorItem.connect('activate', () => {
             try {
                 const app = Gio.AppInfo.create_from_commandline(
@@ -81,16 +97,120 @@ export class RezMonIndicator extends Button {
                 logError(e);
             }
         });
-
         this.menu.addMenuItem(monitorItem);
 
+        // 4. Open Settings
         const settingsItem = new PopupMenuItem("Open Settings");
-
         settingsItem.connect('activate', () => {
             this._extension.openPreferences();
         });
-
         this.menu.addMenuItem(settingsItem);
+
+        // Update dashboard whenever menu opens
+        this.menu.connectObject('open-state-changed', (menu, isOpen) => {
+            if (isOpen) {
+                this._updateDashboard();
+            }
+        }, this);
+    }
+
+    _updateDashboard() {
+        if (!this._dashboardLabel) return;
+        const markup = this._generateDashboardMarkup();
+        this._dashboardLabel.clutter_text.set_markup(markup);
+    }
+
+    _makeProgressBar(percent, length = 14) {
+        const clamped = Math.max(0, Math.min(100, Math.round(percent)));
+        const filled = Math.round((clamped / 100) * length);
+        const empty = length - filled;
+        return '█'.repeat(filled) + '░'.repeat(empty);
+    }
+
+    _generateDashboardMarkup() {
+        const lines = [];
+
+        // Title
+        lines.push(`<b><big>System Status Overview</big></b>`);
+        lines.push(``);
+
+        // CPU
+        const cpu = this._lastMetrics?.cpu || updateCPU(this);
+        const cpuInfo = this._getCpuHardwareInfo();
+        const cpuPct = Number.isFinite(cpu?.usage) ? Math.round(cpu.usage) : 0;
+        const cpuBar = this._makeProgressBar(cpuPct, 14);
+        const cpuClock = Number.isFinite(cpu?.clock) ? `  │  ${cpu.clock.toFixed(2)} GHz` : '';
+        const cpuTemp = Number.isFinite(cpu?.temp) ? `  │  ${this._formatTemperature(cpu.temp)}` : '';
+        lines.push(`<b>CPU</b>  <span alpha="70%">${GLib.markup_escape_text(cpuInfo.model, -1)}</span>`);
+        lines.push(`  <span font_family="monospace">${cpuBar}</span> <b>${cpuPct}%</b>${cpuClock}${cpuTemp}`);
+
+        // Memory (RAM)
+        const ram = this._lastMetrics?.ram || updateRAM(this);
+        if (ram) {
+            const ramPct = Number.isFinite(ram.percent) ? Math.round(ram.percent) : 0;
+            const ramBar = this._makeProgressBar(ramPct, 14);
+            const ramUsed = (ram.used || 0).toFixed(1);
+            const ramTotal = ((ram.used || 0) + (ram.free || 0)).toFixed(1);
+            const ramFree = (ram.free || 0).toFixed(1);
+            lines.push(``);
+            lines.push(`<b>RAM</b>  <b>${ramUsed} GB</b> / ${ramTotal} GB (<span alpha="70%">Free: ${ramFree} GB</span>)`);
+            lines.push(`  <span font_family="monospace">${ramBar}</span> <b>${ramPct}%</b>`);
+        }
+
+        // SWAP
+        const swap = this._lastMetrics?.swap || updateSWAP(this);
+        if (swap && swap.hasSwap) {
+            const swapPct = Number.isFinite(swap.percent) ? Math.round(swap.percent) : 0;
+            const swapBar = this._makeProgressBar(swapPct, 14);
+            const swapUsed = (swap.used || 0).toFixed(1);
+            const swapTotal = ((swap.used || 0) + (swap.free || 0)).toFixed(1);
+            lines.push(``);
+            lines.push(`<b>SWAP</b>  <b>${swapUsed} GB</b> / ${swapTotal} GB`);
+            lines.push(`  <span font_family="monospace">${swapBar}</span> <b>${swapPct}%</b>`);
+        }
+
+        // GPU
+        const gpu = this._lastMetrics?.gpu || updateGPU(this);
+        if (gpu) {
+            const gpuTitle = gpu.name ? GLib.markup_escape_text(gpu.name, -1) : 'GPU';
+            lines.push(``);
+            if (gpu.sleeping) {
+                lines.push(`<b>GPU</b>  <span alpha="70%">${gpuTitle}</span> <span alpha="50%">(D3cold Sleep)</span>`);
+            } else {
+                const gpuPct = Number.isFinite(gpu.usage) ? Math.round(gpu.usage) : 0;
+                const gpuBar = this._makeProgressBar(gpuPct, 14);
+                const gpuTemp = Number.isFinite(gpu.temp) ? `  │  ${this._formatTemperature(gpu.temp)}` : '';
+                const vram = Number.isFinite(gpu.vramUsed) ? `  │  VRAM: <b>${gpu.vramUsed.toFixed(1)}G</b>` : '';
+                lines.push(`<b>GPU</b>  <span alpha="70%">${gpuTitle}</span>`);
+                lines.push(`  <span font_family="monospace">${gpuBar}</span> <b>${gpuPct}%</b>${gpuTemp}${vram}`);
+            }
+        }
+
+        // Storage / Root Filesystem
+        const disk = this._lastMetrics?.disk || updateDisk(this);
+        if (disk) {
+            const diskPct = Number.isFinite(disk.spacePercent) ? Math.round(disk.spacePercent) : 0;
+            const diskBar = this._makeProgressBar(diskPct, 14);
+            const usedStr = this._formatDiskCapacity(disk.spaceUsed || 0);
+            const totalStr = this._formatDiskCapacity((disk.spaceUsed || 0) + (disk.spaceFree || 0));
+            const rRate = this._formatDataRate(disk.read || 0);
+            const wRate = this._formatDataRate(disk.write || 0);
+            lines.push(``);
+            lines.push(`<b>Storage (/)</b>  <b>${usedStr}</b> / ${totalStr}`);
+            lines.push(`  <span font_family="monospace">${diskBar}</span> <b>${diskPct}%</b>  │  I/O: R ${rRate}  W ${wRate}`);
+        }
+
+        // Network
+        const net = this._lastMetrics?.net || updateNET(this);
+        if (net) {
+            const iface = this.prev_iface || 'Active';
+            const down = this._formatDataRate(net.down || 0);
+            const up = this._formatDataRate(net.up || 0);
+            lines.push(``);
+            lines.push(`<b>Network (${GLib.markup_escape_text(iface, -1)})</b>  ↓ <b>${down}</b>  │  ↑ <b>${up}</b>`);
+        }
+
+        return lines.join('\n');
     }
 
     _bindSettings() {
