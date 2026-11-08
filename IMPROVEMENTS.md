@@ -69,13 +69,9 @@ The core stability and performance overhaul has been completed and merged into `
 * **Target Files:** `src/schemas/...gschema.xml`, `src/indicator.js`, `src/prefs.js`
 * **Status:** Implemented unified `label-style` setting supporting `Text (CPU, RAM, ...)` headers, `Symbols (⚙, 🖥, 🖴, ⇄, 💾, 🌐)`, and `None (Compact)` with tag-less minimal brackets.
 
-### 3.3 Panel Position & Ordering (Left, Center, Right)
+### 3.3 Panel Position & Ordering (Left, Center, Right) + Clock Repositioning (Completed)
 * **Target Files:** `src/extension.js`, `src/prefs.js`, `src/schemas/...gschema.xml`
-* **Motivation:**
-  `Main.panel.addToStatusArea('RezMon', this._indicator)` currently places the indicator into the right status area at default index. Users often prefer centering system stats or grouping them on the left next to Workspaces.
-* **Proposed Implementation:**
-  - Add `panel-position` setting (`'right'`, `'center'`, `'left'`) and `panel-priority` (integer index).
-  - Re-attach indicator dynamically when this setting changes without requiring extension restart.
+* **Status:** Implemented `panel-position` (`'right'`, `'center'`, `'left'`), `panel-priority` (order index 0-30), and `clock-position` (`'center'`, `'right'`, `'left'`) with dynamic repositioning and safe restoration on extension disable.
 
 ### 3.4 Customizable Metric Ordering
 * **Target Files:** `src/indicator.js`, `src/prefs.js`

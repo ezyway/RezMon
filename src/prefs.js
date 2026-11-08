@@ -248,6 +248,37 @@ export default class RezMonPreferences extends ExtensionPreferences {
             () => settings.get_int("update-interval")
         ));
 
+        const positionGroup = new Adw.PreferencesGroup({
+            title: "Panel & Clock Position",
+            description: "Customize positions on the top status bar"
+        });
+        advancedPage.add(positionGroup);
+
+        positionGroup.add(this._createComboRow(
+            "Panel Position",
+            settings,
+            ["Right (Default)", "Center", "Left"],
+            ["right", "center", "left"],
+            (value) => settings.set_string("panel-position", value),
+            () => settings.get_string("panel-position")
+        ));
+
+        positionGroup.add(this._createSpinRow(
+            "Panel Order Index / Priority",
+            settings,
+            "panel-priority",
+            0, 30, 1
+        ));
+
+        positionGroup.add(this._createComboRow(
+            "Clock Position",
+            settings,
+            ["Center (Default)", "Right", "Left"],
+            ["center", "right", "left"],
+            (value) => settings.set_string("clock-position", value),
+            () => settings.get_string("clock-position")
+        ));
+
         const alertGroup = new Adw.PreferencesGroup({ title: "Alert Thresholds" });
         advancedPage.add(alertGroup);
 
