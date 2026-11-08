@@ -37,7 +37,7 @@ function getPhysicalDisks() {
     return physicalDisks;
 }
 
-export function updateDisk(state, { force = false } = {}) {
+export async function updateDisk(state, { force = false } = {}) {
     if (!force && state.showDisk === false) return null;
 
     let readRate = 0;
@@ -48,7 +48,7 @@ export function updateDisk(state, { force = false } = {}) {
     if (force || state.diskRead || state.diskWrite) {
         try {
             const disks = getPhysicalDisks();
-            const lines = readFileLines('/proc/diskstats');
+            const lines = await readFileLines('/proc/diskstats');
             let totalReadSectors = 0;
             let totalWriteSectors = 0;
 

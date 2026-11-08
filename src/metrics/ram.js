@@ -1,9 +1,8 @@
 import { readFileLines } from '../utils/file.js';
 
-export function updateRAM(state) {
-
+export async function updateRAM(state) {
     try {
-        const lines = readFileLines('/proc/meminfo');
+        const lines = await readFileLines('/proc/meminfo');
 
         let total = null;
         let available = null;

@@ -4,7 +4,7 @@ import { readFile, readFileLines } from '../utils/file.js';
 
 let cachedThermalPath = undefined;
 
-function findThermalPath() {
+async function findThermalPath() {
     const preferredTypes = ['x86_pkg_temp', 'coretemp', 'k10temp', 'cpu_thermal', 'cpu-thermal', 'soc_thermal'];
     const tzBase = '/sys/class/thermal';
     const tzDir = Gio.File.new_for_path(tzBase);
@@ -42,7 +42,7 @@ function findThermalPath() {
             for (const pref of preferredTypes) {
                 for (const zone of zones) {
                     const typePath = `${tzBase}/${zone}/type`;
-                    const typeStr = readFile(typePath);
+                    const typeStr = await readFile(typePath);
                     if (typeStr && typeStr.trim().toLowerCase() === pref) {
                         const tempPath = `${tzBase}/${zone}/temp`;
                         if (GLib.file_test(tempPath, GLib.FileTest.EXISTS)) {
@@ -79,7 +79,7 @@ function findThermalPath() {
                     const name = info.get_name();
                     if (name.startsWith('hwmon')) {
                         const nameFile = `${hwmonBase}/${name}/name`;
-                        const nameStr = readFile(nameFile);
+                        const nameStr = await readFile(nameFile);
                         if (nameStr) {
                             const devName = nameStr.trim().toLowerCase();
                             if (['coretemp', 'k10temp', 'cpu'].some(p => devName.includes(p))) {
@@ -109,15 +109,15 @@ function findThermalPath() {
     return null;
 }
 
-function getThermalPath() {
+async function getThermalPath() {
     if (cachedThermalPath !== undefined) {
         return cachedThermalPath;
     }
-    cachedThermalPath = findThermalPath();
+    cachedThermalPath = await findThermalPath();
     return cachedThermalPath;
 }
 
-function getCPUClock() {
+async function getCPUClock() {
     // 1. Try standard Linux cpufreq sysfs interface (scaling_cur_freq in kHz)
     const freqPaths = [
         '/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq',
@@ -125,7 +125,7 @@ function getCPUClock() {
     ];
     for (const p of freqPaths) {
         if (GLib.file_test(p, GLib.FileTest.EXISTS)) {
-            const text = readFile(p);
+            const text = await readFile(p);
             if (text && text.trim() !== '') {
                 const khz = parseInt(text.trim(), 10);
                 if (Number.isFinite(khz) && khz > 0) {
@@ -137,7 +137,7 @@ function getCPUClock() {
 
     // 2. Fall back to /proc/cpuinfo
     try {
-        const lines = readFileLines('/proc/cpuinfo');
+        const lines = await readFileLines('/proc/cpuinfo');
         let mhz = 0;
         let count = 0;
 
@@ -163,15 +163,14 @@ function getCPUClock() {
     return null;
 }
 
-export function updateCPU(state, { force = false } = {}) {
-
+export async function updateCPU(state, { force = false } = {}) {
     let cpu_usage = null;
     let ghz_value = null;
     let cpu_temp = null;
 
     if (force || (state.cpuUsage ?? true)) {
         try {
-            const lines = readFileLines('/proc/stat');
+            const lines = await readFileLines('/proc/stat');
 
             for (const line of lines) {
                 const fields = line.trim().split(/\s+/);
@@ -203,14 +202,14 @@ export function updateCPU(state, { force = false } = {}) {
     }
 
     if (force || (state.cpuClock ?? true)) {
-        ghz_value = getCPUClock();
+        ghz_value = await getCPUClock();
     }
 
     if (force || (state.cpuTemp ?? true)) {
-        const thermalPath = getThermalPath();
+        const thermalPath = await getThermalPath();
         if (thermalPath) {
             try {
-                const text = readFile(thermalPath);
+                const text = await readFile(thermalPath);
                 if (text && text.trim() !== '') {
                     const raw = parseInt(text.trim(), 10);
                     if (Number.isFinite(raw)) {

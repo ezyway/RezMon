@@ -5,13 +5,12 @@ import Gio from 'gi://Gio';
 import { readFile, readFileLines } from '../utils/file.js';
 
 let detectedGPUs = null;
-let cachedPkgTempPath = null;
 
-function getSharedVram() {
+async function getSharedVram() {
     let memTotalKb = 0;
     let shmemKb = 0;
 
-    const lines = readFileLines('/proc/meminfo');
+    const lines = await readFileLines('/proc/meminfo');
     for (const line of lines) {
         if (line.startsWith('MemTotal:')) {
             memTotalKb = parseInt(line.split(/\s+/)[1], 10) || 0;
@@ -45,63 +44,7 @@ function getSharedVram() {
     };
 }
 
-function getPackageTemp() {
-    if (cachedPkgTempPath && GLib.file_test(cachedPkgTempPath, GLib.FileTest.EXISTS)) {
-        const raw = readFile(cachedPkgTempPath);
-        if (raw) {
-            const val = parseFloat(raw.trim());
-            if (Number.isFinite(val)) return val / 1000;
-        }
-    }
-
-    const tzBase = '/sys/class/thermal';
-    const tzDir = Gio.File.new_for_path(tzBase);
-    const preferred = ['x86_pkg_temp', 'coretemp', 'cpu_thermal', 'cpu-thermal', 'soc_thermal'];
-    try {
-        if (tzDir.query_exists(null)) {
-            let enumerator = null;
-            const zones = [];
-            try {
-                enumerator = tzDir.enumerate_children(
-                    'standard::name',
-                    Gio.FileQueryInfoFlags.NONE,
-                    null
-                );
-                let info;
-                while ((info = enumerator.next_file(null)) !== null) {
-                    const name = info.get_name();
-                    if (name.startsWith('thermal_zone')) zones.push(name);
-                }
-            } finally {
-                if (enumerator) {
-                    try { enumerator.close(null); } catch (_) {}
-                }
-            }
-
-            zones.sort();
-            for (const pref of preferred) {
-                for (const z of zones) {
-                    const type = readFile(`${tzBase}/${z}/type`);
-                    if (type && type.trim().toLowerCase() === pref) {
-                        const path = `${tzBase}/${z}/temp`;
-                        if (GLib.file_test(path, GLib.FileTest.EXISTS)) {
-                            cachedPkgTempPath = path;
-                            const raw = readFile(path);
-                            if (raw) {
-                                const val = parseFloat(raw.trim());
-                                if (Number.isFinite(val)) return val / 1000;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    } catch (e) {}
-
-    return null;
-}
-
-function scanGPUs() {
+async function scanGPUs() {
     if (detectedGPUs) return detectedGPUs;
 
     let nvidiaCard = null;
@@ -122,7 +65,7 @@ function scanGPUs() {
                 const name = info.get_name();
                 if (/^card\d+$/.test(name)) {
                     const devPath = `/sys/class/drm/${name}/device`;
-                    const uevent = readFile(`${devPath}/uevent`);
+                    const uevent = await readFile(`${devPath}/uevent`);
                     let driver = '';
                     if (uevent) {
                         for (const line of uevent.split('\n')) {
@@ -188,12 +131,12 @@ function scanGPUs() {
 let cachedNvidiaStats = null;
 let isNvidiaQuerying = false;
 
-function queryNvidia(gpus) {
+async function queryNvidia(gpus) {
     if (!gpus.nvidia || !gpus.hasNvidiaSmi) return null;
 
     // Check runtime power status to avoid waking sleeping dGPU on battery
     if (gpus.nvidia.devPath) {
-        const runtimeStatus = readFile(`${gpus.nvidia.devPath}/power/runtime_status`);
+        const runtimeStatus = await readFile(`${gpus.nvidia.devPath}/power/runtime_status`);
         if (runtimeStatus && runtimeStatus.trim().toLowerCase() === 'suspended') {
             return {
                 sleeping: true,
@@ -273,14 +216,16 @@ function queryNvidia(gpus) {
     };
 }
 
-function queryAmd(gpus) {
+async function queryAmd(gpus) {
     if (!gpus.amd) return null;
     const dev = gpus.amd.devPath;
     const path = gpus.amd.path;
 
     let usage = null;
-    const busy = (dev ? readFile(`${dev}/gpu_busy_percent`) : null) ||
-                 (path ? readFile(`${path}/gpu_busy_percent`) : null);
+    let busy = dev ? await readFile(`${dev}/gpu_busy_percent`) : null;
+    if (!busy && path) {
+        busy = await readFile(`${path}/gpu_busy_percent`);
+    }
     if (busy) {
         const val = parseFloat(busy.trim());
         if (Number.isFinite(val)) usage = Math.min(100, Math.max(0, val));
@@ -288,8 +233,10 @@ function queryAmd(gpus) {
     if (usage === null) usage = 0;
 
     let clock = null;
-    const clk = (dev ? readFile(`${dev}/current_gfxclk`) : null) ||
-                (path ? readFile(`${path}/current_gfxclk`) : null);
+    let clk = dev ? await readFile(`${dev}/current_gfxclk`) : null;
+    if (!clk && path) {
+        clk = await readFile(`${path}/current_gfxclk`);
+    }
     if (clk) {
         const val = parseFloat(clk.trim());
         if (Number.isFinite(val)) clock = val;
@@ -305,7 +252,7 @@ function queryAmd(gpus) {
             let info;
             while ((info = enumerator.next_file(null)) !== null) {
                 const hName = info.get_name();
-                const tempFile = readFile(`${hwmonPath}/${hName}/temp1_input`);
+                const tempFile = await readFile(`${hwmonPath}/${hName}/temp1_input`);
                 if (tempFile) {
                     const raw = parseFloat(tempFile.trim());
                     if (Number.isFinite(raw)) {
@@ -321,15 +268,12 @@ function queryAmd(gpus) {
             }
         }
     }
-    if (temp === null) {
-        temp = getPackageTemp();
-    }
 
     let vramUsed = null;
     let vramFree = null;
     let vramPercent = null;
-    const usedBytes = dev ? readFile(`${dev}/mem_info_vram_used`) : null;
-    const totalBytes = dev ? readFile(`${dev}/mem_info_vram_total`) : null;
+    const usedBytes = dev ? await readFile(`${dev}/mem_info_vram_used`) : null;
+    const totalBytes = dev ? await readFile(`${dev}/mem_info_vram_total`) : null;
     if (usedBytes && totalBytes) {
         const u = parseFloat(usedBytes.trim());
         const t = parseFloat(totalBytes.trim());
@@ -340,7 +284,7 @@ function queryAmd(gpus) {
             vramPercent = (u / t) * 100;
         }
     } else {
-        const shared = getSharedVram();
+        const shared = await getSharedVram();
         vramUsed = shared.vramUsed;
         vramFree = shared.vramFree;
         vramPercent = shared.vramPercent;
@@ -358,24 +302,24 @@ function queryAmd(gpus) {
     };
 }
 
-function queryIntel(gpus, state) {
+async function queryIntel(gpus, state) {
     if (!gpus.intel) return null;
     const path = gpus.intel.path;
     const devPath = gpus.intel.devPath;
 
     let clock = null;
-    const curFreq = readFile(`${path}/gt_act_freq_mhz`) ||
-                    readFile(`${path}/gt_cur_freq_mhz`) ||
-                    (devPath ? readFile(`${devPath}/gt_act_freq_mhz`) : null);
+    let curFreq = path ? await readFile(`${path}/gt_act_freq_mhz`) : null;
+    if (!curFreq && path) curFreq = await readFile(`${path}/gt_cur_freq_mhz`);
+    if (!curFreq && devPath) curFreq = await readFile(`${devPath}/gt_act_freq_mhz`);
     if (curFreq) {
         const mhz = parseFloat(curFreq.trim());
         if (Number.isFinite(mhz)) clock = mhz;
     }
 
     let usage = null;
-    const rc6File = readFile(`${path}/power/rc6_residency_ms`) ||
-                    readFile(`${path}/gt/gt0/rc6_residency_ms`) ||
-                    (devPath ? readFile(`${devPath}/power/rc6_residency_ms`) : null);
+    let rc6File = path ? await readFile(`${path}/power/rc6_residency_ms`) : null;
+    if (!rc6File && path) rc6File = await readFile(`${path}/gt/gt0/rc6_residency_ms`);
+    if (!rc6File && devPath) rc6File = await readFile(`${devPath}/power/rc6_residency_ms`);
     const now = GLib.get_monotonic_time() / 1000;
     if (rc6File) {
         const rc6 = parseInt(rc6File.trim(), 10);
@@ -406,7 +350,7 @@ function queryIntel(gpus, state) {
                 let info;
                 while ((info = enumerator.next_file(null)) !== null) {
                     const hName = info.get_name();
-                    const tempFile = readFile(`${devPath}/hwmon/${hName}/temp1_input`);
+                    const tempFile = await readFile(`${devPath}/hwmon/${hName}/temp1_input`);
                     if (tempFile) {
                         const raw = parseFloat(tempFile.trim());
                         if (Number.isFinite(raw)) {
@@ -423,15 +367,15 @@ function queryIntel(gpus, state) {
             }
         }
     }
-    if (temp === null) {
-        temp = getPackageTemp();
-    }
 
     let vramUsed = null;
     let vramFree = null;
     let vramPercent = null;
-    const lmemTotal = devPath ? (readFile(`${devPath}/lmem_total_bytes`) || readFile(`${path}/lmem_total_bytes`)) : null;
-    const lmemAvail = devPath ? (readFile(`${devPath}/lmem_avail_bytes`) || readFile(`${path}/lmem_avail_bytes`)) : null;
+    let lmemTotal = devPath ? await readFile(`${devPath}/lmem_total_bytes`) : null;
+    if (!lmemTotal && path) lmemTotal = await readFile(`${path}/lmem_total_bytes`);
+    let lmemAvail = devPath ? await readFile(`${devPath}/lmem_avail_bytes`) : null;
+    if (!lmemAvail && path) lmemAvail = await readFile(`${path}/lmem_avail_bytes`);
+
     if (lmemTotal && lmemAvail) {
         const t = parseFloat(lmemTotal.trim());
         const a = parseFloat(lmemAvail.trim());
@@ -442,7 +386,7 @@ function queryIntel(gpus, state) {
             vramPercent = (u / t) * 100;
         }
     } else {
-        const shared = getSharedVram();
+        const shared = await getSharedVram();
         vramUsed = shared.vramUsed;
         vramFree = shared.vramFree;
         vramPercent = shared.vramPercent;
@@ -460,41 +404,41 @@ function queryIntel(gpus, state) {
     };
 }
 
-export function updateGPU(state) {
-    const gpus = scanGPUs();
+export async function updateGPU(state) {
+    const gpus = await scanGPUs();
     const mode = state.gpuDevice || 'auto';
 
     if (mode === 'integrated') {
-        if (gpus.intel) return queryIntel(gpus, state);
-        if (gpus.amd) return queryAmd(gpus);
+        if (gpus.intel) return await queryIntel(gpus, state);
+        if (gpus.amd) return await queryAmd(gpus);
         return null;
     }
 
     if (mode === 'dedicated') {
-        if (gpus.nvidia) return queryNvidia(gpus);
-        if (gpus.amd) return queryAmd(gpus);
+        if (gpus.nvidia) return await queryNvidia(gpus);
+        if (gpus.amd) return await queryAmd(gpus);
         return null;
     }
 
     // Auto mode: prefer active dedicated GPU if present
     if (gpus.nvidia) {
-        const dgpu = queryNvidia(gpus);
+        const dgpu = await queryNvidia(gpus);
         if (dgpu && !dgpu.sleeping) return dgpu;
         if (dgpu && dgpu.sleeping && !gpus.intel && !gpus.amd) return dgpu;
     }
 
     if (gpus.amd) {
-        const dgpu = queryAmd(gpus);
+        const dgpu = await queryAmd(gpus);
         if (dgpu && !dgpu.sleeping) return dgpu;
         if (dgpu && dgpu.sleeping && !gpus.intel) return dgpu;
     }
 
     if (gpus.intel) {
-        return queryIntel(gpus, state);
+        return await queryIntel(gpus, state);
     }
 
     if (gpus.amd) {
-        return queryAmd(gpus);
+        return await queryAmd(gpus);
     }
 
     return null;

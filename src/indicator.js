@@ -44,6 +44,7 @@ export class RezMonIndicator extends Button {
         this._bindSettings();
         this._buildMenu();
 
+        this._loadCpuHardwareInfo();
         this._updateMetrics();
     }
 
@@ -228,7 +229,7 @@ export class RezMonIndicator extends Button {
         lines.push(``);
 
         // CPU
-        const cpu = this._lastMetrics?.cpu || updateCPU(this, { force: true });
+        const cpu = this._lastMetrics?.cpu || { usage: 0, clock: null, temp: null };
         const cpuInfo = this._getCpuHardwareInfo();
         const cpuPct = Number.isFinite(cpu?.usage) ? Math.round(cpu.usage) : 0;
         const cpuBar = this._makeProgressBar(cpuPct, 14);
@@ -238,7 +239,7 @@ export class RezMonIndicator extends Button {
         lines.push(`  <span font_family="monospace">${cpuBar}</span> <b>${cpuPct}%</b>${cpuClock}${cpuTemp}`);
 
         // Memory (RAM)
-        const ram = this._lastMetrics?.ram || updateRAM(this);
+        const ram = this._lastMetrics?.ram;
         if (ram) {
             const ramPct = Number.isFinite(ram.percent) ? Math.round(ram.percent) : 0;
             const ramBar = this._makeProgressBar(ramPct, 14);
@@ -251,7 +252,7 @@ export class RezMonIndicator extends Button {
         }
 
         // SWAP
-        const swap = this._lastMetrics?.swap || updateSWAP(this, { force: true });
+        const swap = this._lastMetrics?.swap;
         if (swap && swap.hasSwap) {
             const swapPct = Number.isFinite(swap.percent) ? Math.round(swap.percent) : 0;
             const swapBar = this._makeProgressBar(swapPct, 14);
@@ -263,7 +264,7 @@ export class RezMonIndicator extends Button {
         }
 
         // GPU
-        const gpu = this._lastMetrics?.gpu || updateGPU(this);
+        const gpu = this._lastMetrics?.gpu;
         if (gpu) {
             const gpuTitle = gpu.name ? GLib.markup_escape_text(gpu.name, -1) : 'GPU';
             lines.push(``);
@@ -280,7 +281,7 @@ export class RezMonIndicator extends Button {
         }
 
         // Storage / Root Filesystem
-        const disk = this._lastMetrics?.disk || updateDisk(this, { force: true });
+        const disk = this._lastMetrics?.disk;
         if (disk) {
             const diskPct = Number.isFinite(disk.spacePercent) ? Math.round(disk.spacePercent) : 0;
             const diskBar = this._makeProgressBar(diskPct, 14);
@@ -294,7 +295,7 @@ export class RezMonIndicator extends Button {
         }
 
         // Network
-        const net = this._lastMetrics?.net || updateNET(this);
+        const net = this._lastMetrics?.net;
         if (net) {
             const iface = this.prev_iface || 'Active';
             const down = this._formatDataRate(net.down || 0);
@@ -446,30 +447,37 @@ export class RezMonIndicator extends Button {
         );
     }
 
-    _updateMetrics() {
+    async _updateMetrics() {
+        if (this._destroyed || this._isUpdating)
+            return;
+        this._isUpdating = true;
 
-        const parts = [];
+        try {
+            if (!this._lastMetrics)
+                this._lastMetrics = {};
 
-        if (!this._lastMetrics)
-            this._lastMetrics = {};
+            const isMenuOpen = !!(this.menu && this.menu.isOpen);
 
-        const isMenuOpen = !!(this.menu && this.menu.isOpen);
+            const [cpu, gpu, ram, swap, disk, net] = await Promise.all([
+                (isMenuOpen || this.showCPU) ? updateCPU(this, { force: isMenuOpen }) : Promise.resolve(null),
+                (isMenuOpen || this.showGPU) ? updateGPU(this) : Promise.resolve(null),
+                (isMenuOpen || this.showRAM) ? updateRAM(this) : Promise.resolve(null),
+                (isMenuOpen || this.showSWAP) ? updateSWAP(this, { force: isMenuOpen }) : Promise.resolve(null),
+                (isMenuOpen || this.showDisk) ? updateDisk(this, { force: isMenuOpen }) : Promise.resolve(null),
+                (isMenuOpen || this.showNET) ? updateNET(this) : Promise.resolve(null),
+            ]);
 
-        if (isMenuOpen) {
-            this._lastMetrics.cpu = updateCPU(this, { force: true });
-            this._lastMetrics.gpu = updateGPU(this);
-            this._lastMetrics.ram = updateRAM(this);
-            this._lastMetrics.swap = updateSWAP(this, { force: true });
-            this._lastMetrics.disk = updateDisk(this, { force: true });
-            this._lastMetrics.net = updateNET(this);
-        } else {
-            if (this.showCPU) this._lastMetrics.cpu = updateCPU(this);
-            if (this.showGPU) this._lastMetrics.gpu = updateGPU(this);
-            if (this.showRAM) this._lastMetrics.ram = updateRAM(this);
-            if (this.showSWAP) this._lastMetrics.swap = updateSWAP(this);
-            if (this.showDisk) this._lastMetrics.disk = updateDisk(this);
-            if (this.showNET) this._lastMetrics.net = updateNET(this);
-        }
+            if (this._destroyed)
+                return;
+
+            if (cpu !== null) this._lastMetrics.cpu = cpu;
+            if (gpu !== null) this._lastMetrics.gpu = gpu;
+            if (ram !== null) this._lastMetrics.ram = ram;
+            if (swap !== null) this._lastMetrics.swap = swap;
+            if (disk !== null) this._lastMetrics.disk = disk;
+            if (net !== null) this._lastMetrics.net = net;
+
+            const parts = [];
 
         const formatters = {
             cpu: () => (this.showCPU && this._lastMetrics.cpu) ? this._formatCPU(this._lastMetrics.cpu) : null,
@@ -498,7 +506,12 @@ export class RezMonIndicator extends Button {
         if (isMenuOpen) {
             this._updateDashboard();
         }
+    } catch (e) {
+        logError(e);
+    } finally {
+        this._isUpdating = false;
     }
+}
 
     /*
     ------------------------
@@ -865,14 +878,11 @@ export class RezMonIndicator extends Button {
         return `${gb.toFixed(1)} GB`;
     }
 
-    _getCpuHardwareInfo() {
-        if (this._cpuHwInfo)
-            return this._cpuHwInfo;
-
+    async _loadCpuHardwareInfo() {
         let model = 'CPU';
         let cores = 0;
         try {
-            const lines = readFileLines('/proc/cpuinfo');
+            const lines = await readFileLines('/proc/cpuinfo');
             for (const line of lines) {
                 if (line.startsWith('model name')) {
                     if (model === 'CPU') {
@@ -887,10 +897,14 @@ export class RezMonIndicator extends Button {
         } catch (_) {}
 
         this._cpuHwInfo = { model, cores: cores || 1 };
-        return this._cpuHwInfo;
+    }
+
+    _getCpuHardwareInfo() {
+        return this._cpuHwInfo || { model: 'CPU', cores: 1 };
     }
 
     destroy() {
+        this._destroyed = true;
         this.stop();
 
         if (this.menu) {

@@ -2,7 +2,7 @@
 
 import { readFileLines } from '../utils/file.js';
 
-export function updateSWAP(state = {}, { force = false } = {}) {
+export async function updateSWAP(state = {}, { force = false } = {}) {
     if (!force && state.showSWAP === false) {
         return null;
     }
@@ -13,7 +13,7 @@ export function updateSWAP(state = {}, { force = false } = {}) {
     let foundFree = false;
 
     try {
-        const lines = readFileLines('/proc/meminfo');
+        const lines = await readFileLines('/proc/meminfo');
 
         for (const line of lines) {
             if (line.startsWith('SwapTotal:')) {

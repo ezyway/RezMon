@@ -9,7 +9,7 @@ import { readFileLines } from './utils/file.js';
 
 export default class RezMonPreferences extends ExtensionPreferences {
 
-    fillPreferencesWindow(window) {
+    async fillPreferencesWindow(window) {
         this.initTranslations();
 
         const settings = this.getSettings('org.gnome.shell.extensions.rezmon');
@@ -172,7 +172,7 @@ export default class RezMonPreferences extends ExtensionPreferences {
         const ifaces = ['auto'];
         const labels = [_('Auto (Default Route)')];
         try {
-            const lines = readFileLines('/proc/net/dev');
+            const lines = await readFileLines('/proc/net/dev');
             for (let i = 2; i < lines.length; i++) {
                 const line = lines[i].trim();
                 const colon = line.indexOf(':');

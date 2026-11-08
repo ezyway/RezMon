@@ -1,8 +1,8 @@
 import GLib from 'gi://GLib';
 import { readFileLines } from '../utils/file.js';
 
-function getDefaultInterface() {
-    const lines = readFileLines('/proc/net/route');
+async function getDefaultInterface() {
+    const lines = await readFileLines('/proc/net/route');
     let bestIface = '';
     let lowestMetric = Infinity;
 
@@ -24,8 +24,8 @@ function getDefaultInterface() {
     return bestIface;
 }
 
-export function getAvailableInterfaces() {
-    const lines = readFileLines('/proc/net/dev');
+export async function getAvailableInterfaces() {
+    const lines = await readFileLines('/proc/net/dev');
     const ifaces = [];
     for (let i = 2; i < lines.length; i++) {
         const line = lines[i].trim();
@@ -40,21 +40,20 @@ export function getAvailableInterfaces() {
     return ifaces;
 }
 
-export function updateNET(state) {
-
+export async function updateNET(state) {
     try {
         let selected = state.netInterface || 'auto';
         let iface = '';
 
         if (selected !== 'auto') {
-            const available = getAvailableInterfaces();
+            const available = await getAvailableInterfaces();
             if (available.includes(selected)) {
                 iface = selected;
             } else {
-                iface = getDefaultInterface();
+                iface = await getDefaultInterface();
             }
         } else {
-            iface = getDefaultInterface();
+            iface = await getDefaultInterface();
         }
 
         if (!iface) {
@@ -62,11 +61,10 @@ export function updateNET(state) {
             return { down: 0, up: 0 };
         }
 
-        const lines = readFileLines('/proc/net/dev');
+        const lines = await readFileLines('/proc/net/dev');
 
         let tx = 0;
         let rx = 0;
-        const ifacePrefix = `${iface}:`;
 
         for (let i = 2; i < lines.length; i++) {
             const l = lines[i].trim();
