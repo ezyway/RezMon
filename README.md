@@ -1,79 +1,57 @@
 # RezMon (Resource Monitor)
 
-A minimalist, lightweight system resource monitor extension for the GNOME Shell top bar/status area. It provides real-time tracking of CPU, RAM, and network statistics directly in your panel, complete with custom threshold coloring and full styling configuration.
+A minimalist, high-performance system resource monitor for the GNOME Shell top panel. RezMon provides real-time tracking of CPU, Multi-GPU, RAM, SWAP, Disk I/O, Root Storage, and Network statistics with threshold alerts, an interactive live dropdown dashboard, and deep visual styling.
 
 ![Resource Monitor Screenshot](./screenshots/Full%20View.png)
 
-## Features
+## Highlights & Features
 
-- **CPU monitoring**:
-  - Usage percentage (colored based on configurable warning/critical thresholds)
-  - Average clock frequency (GHz)
-  - Core temperature (℃)
-- **RAM monitoring**:
-  - Used memory (GB)
-  - Free memory (GB)
-  - Usage percentage (colored based on thresholds)
-- **Network monitoring**:
-  - Real-time download (↓) and upload (↑) speeds
-  - Smart automatic unit conversion (B/s, KB/s, MB/s, GB/s)
-- **Highly customizable appearance**:
-  - Customizable brackets: `( )`, `[ ]`, or `{ }`
-  - Multiple text delimiters: `|`, `-`, `~`, `/`, `\`, `:`, `;`, `+`, `=`, or space
-  - Configurable panel spacing: `Small`, `Normal`, or `Wide`
-- **Adjustable behavior**:
-  - Customizable update interval (1 to 5 seconds)
-  - Warning and critical thresholds for color coding (Yellow/Red)
+- **CPU Monitoring**: Usage percentage, average core frequency (GHz), and core temperature (℃ / ℉).
+- **Multi-GPU & VRAM**: 
+  - Supports **NVIDIA**, **AMD Radeon**, and **Intel Graphics** (Auto, Dedicated, or Integrated selection).
+  - Usage %, clock speed, temperature, and dedicated/shared VRAM (Used, Free, %).
+  - Laptop power-saving: Preserves discrete GPU D3cold sleep on battery.
+- **RAM & SWAP**: Memory usage, free memory, and dedicated swap tracking with color-coded alerts.
+- **Disk I/O & Storage**: Real-time read/write throughput rates and root (`/`) storage utilization.
+- **Network Bandwidth**: Live download (↓) and upload (↑) bandwidth, automatic default route or specific interface selection (Wi-Fi, Ethernet, VPN), and fractional precision.
+- **Live System Overview Dashboard**: Real-time popup overview with visual progress bars (`████░░░░ 50%`) for all hardware, top 3 CPU and Memory processes, and quick-launch system monitors (*GNOME System Monitor, Resources, btop, htop*).
+- **Customizable Layout & Styling**:
+  - Display modes: **Text Headers** (`CPU`, `RAM`), **Symbolic Icons** (`⚙`, `🖴`), or **Compact Mode** (brackets only).
+  - Dynamic drag/move metric ordering.
+  - Panel box positioning (Left, Center, Right) and centered Ubuntu date/clock repositioning.
+  - Custom brackets, delimiters, spacing, update intervals (1–5s), and yellow/red warning thresholds.
 
 ## Compatibility
 
-RezMon is officially tested and supported on:
-- **GNOME Shell version**: `45`, `46`, `47`, `48`, `49`, `50`, and `51`
-- **OS**: Ubuntu 26.04 LTS (and other distributions running compatible GNOME versions)
+- **GNOME Shell**: `45`, `46`, `47`, `48`, `49`, `50`, and `51`
+- **Display Server**: Wayland & X11
+- **Platform**: Linux (x86_64, aarch64)
 
 ## Installation
 
 ### Method 1: GNOME Extensions Website (Recommended)
+Install with one click from the official [GNOME Extensions - RezMon](https://extensions.gnome.org/extension/6952/rezmon/) page.
 
-Install it directly with one click from the official [GNOME Extensions - RezMon](https://extensions.gnome.org/extension/6952/rezmon/) page.
+### Method 2: From Source
+```bash
+git clone https://github.com/ezyway/RezMon.git
+cd RezMon
+make install
+```
+*(If `make` is unavailable, see the zero-dependency bash install in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).)*
 
-### Method 2: Manual Installation (From Source)
+## Detailed Documentation
 
-To build and install the extension manually, you can use the provided `Makefile`.
+For in-depth guides, telemetry architecture, and customization details, see the `docs/` folder:
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/ezyway/RezMon.git
-   cd RezMon
-   ```
+| Guide | Description |
+| :--- | :--- |
+| 📖 [**Hardware & GPU Guide**](docs/HARDWARE_GPU.md) | Multi-GPU handling, NVIDIA D3cold sleep, AMD/Intel sysfs, thermal sensors, and network routing. |
+| 🎨 [**Configuration & Styling**](docs/CONFIGURATION.md) | Display styles (Text, Icons, Compact), metric ordering, panel & clock repositioning, and alert colors. |
+| 🛠️ [**Development & Packaging**](docs/DEVELOPMENT.md) | Makefile targets, bash build steps without make, EGO packaging rules, and code verification. |
+| 🌐 [**Translations (i18n)**](docs/TRANSLATIONS.md) | Contributing new language translations via Gettext PO files and compiling locales. |
 
-2. **Build and install:**
-   ```bash
-   make install
-   ```
-   This will compile the settings schemas and copy the extension files to your local directory: `~/.local/share/gnome-shell/extensions/rezmon@azz.lol`.
+## Credits & License
 
-3. **Restart GNOME Shell:**
-   - **X11**: Press `Alt+F2`, type `r`, and press `Enter`.
-   - **Wayland**: Log out of your session and log back in.
-
-4. **Enable the extension:**
-   Enable it via the GNOME **Extensions** or **Extension Manager** application.
-
-## Makefile Reference
-
-The `Makefile` supports the following targets:
-- `make build` - Prepares extension files under `build/` and compiles settings GSchemas.
-- `make install` - Installs the extension locally and attempts to enable it.
-- `make uninstall` - Disables and removes the local installation.
-- `make zip` - Generates a production-ready package zip file (`rezmon@azz.lol.zip`).
-- `make clean` - Removes the build directories.
-
-## Credits
-
-Based on the [System Monitor Tray Indicator](https://github.com/michaelknap/gnome-system-monitor-indicator) by Michael Knap.
-
-## License
-
-This project is licensed under the [MIT License](LICENSE).
-
+- Based on the [System Monitor Tray Indicator](https://github.com/michaelknap/gnome-system-monitor-indicator) by Michael Knap.
+- Licensed under the [MIT License](LICENSE).
