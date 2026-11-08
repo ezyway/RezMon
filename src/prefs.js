@@ -215,6 +215,15 @@ export default class RezMonPreferences extends ExtensionPreferences {
             () => settings.get_string("temp-unit")
         ));
 
+        appearanceGroup.add(this._createComboRow(
+            "Label Style",
+            settings,
+            ["Text (CPU, RAM, ...)", "Symbols (⚙, 🖥, ...)", "None (Compact)"],
+            ["text", "symbol", "none"],
+            (value) => settings.set_string("label-style", value),
+            () => settings.get_string("label-style")
+        ));
+
         /*
         --------------------
         ADVANCED PAGE

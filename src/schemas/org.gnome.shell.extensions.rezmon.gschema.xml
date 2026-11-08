@@ -17,6 +17,7 @@
     <key name="update-interval" type="i"><default>1</default></key>
     <key name="spacing" type="s"><default>"normal"</default></key>
     <key name="temp-unit" type="s"><default>"celsius"</default></key>
+    <key name="label-style" type="s"><default>"text"</default></key>
 
     <!-- NEW: CPU -->
     <key name="cpu-usage" type="b"><default>true</default></key>

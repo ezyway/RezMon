@@ -65,23 +65,9 @@ The core stability and performance overhaul has been completed and merged into `
 
 ## 3. UI, UX & Panel Customization
 
-### 3.1 Compact / Minimalist Mode (Hide Metric Tags)
-* **Target Files:** `src/indicator.js`, `src/prefs.js`, `src/schemas/...gschema.xml`
-* **Motivation:**
-  On compact laptop displays (13"–14") or setups with centered GNOME dash docks, horizontal top bar real estate is precious. Displaying `CPU`, `RAM`, and `NET` tags takes up ~12–16 characters of unnecessary horizontal padding.
-* **Proposed Implementation:**
-  - Add boolean key `compact-mode` in schema (default: `false`).
-  - When enabled, format strings without tag prefixes:
-    - Normal: `CPU[12% | 3.50GHz]  RAM[4.5G]  NET[↓ 02 | ↑ 00]MB/s`
-    - Compact: `[12% | 3.50GHz]  [4.5G]  [↓ 02 | ↑ 00]MB/s`
-
-### 3.2 Symbolic Icons Option
-* **Target Files:** `src/indicator.js`, `src/prefs.js`
-* **Motivation:**
-  Adhering to GNOME Human Interface Guidelines (HIG), symbolic monochrome icons provide a cleaner, integrated visual aesthetic.
-* **Proposed Implementation:**
-  - Add appearance choice: `label-style` (`'text'`, `'icons'`, `'none'`).
-  - When `'icons'` is selected, replace text headers with embedded Pango icon characters or St.Icon widgets (`cpu-symbolic`, `drive-harddisk-symbolic`, `network-transmit-receive-symbolic`).
+### 3.1 & 3.2 Label Style (Text, Symbolic Icons, Compact None) (Completed)
+* **Target Files:** `src/schemas/...gschema.xml`, `src/indicator.js`, `src/prefs.js`
+* **Status:** Implemented unified `label-style` setting supporting `Text (CPU, RAM, ...)` headers, `Symbols (⚙, 🖥, 🖴, ⇄, 💾, 🌐)`, and `None (Compact)` with tag-less minimal brackets.
 
 ### 3.3 Panel Position & Ordering (Left, Center, Right)
 * **Target Files:** `src/extension.js`, `src/prefs.js`, `src/schemas/...gschema.xml`

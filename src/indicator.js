@@ -160,6 +160,7 @@ export class RezMonIndicator extends Button {
 
         this.spacing = spacingMap[this._settings.get_string("spacing")] || "    ";
         this.tempUnit = this._settings.get_string("temp-unit") || "celsius";
+        this.labelStyle = this._settings.get_string("label-style") || "text";
 
         // thresholds
         this.warnThreshold = this._settings.get_int('warn-threshold') || 70;
@@ -296,6 +297,34 @@ export class RezMonIndicator extends Button {
     ------------------------
     */
 
+    _getPrefix(type) {
+
+        if (this.labelStyle === 'none')
+            return "";
+
+        if (this.labelStyle === 'symbol') {
+            const symbols = {
+                cpu: "⚙",
+                gpu: "🖥",
+                ram: "🖴",
+                swap: "⇄",
+                disk: "💾",
+                net: "🌐"
+            };
+            return symbols[type] || "";
+        }
+
+        const text = {
+            cpu: "CPU",
+            gpu: "GPU",
+            ram: "RAM",
+            swap: "SWAP",
+            disk: "DISK",
+            net: "NET"
+        };
+        return text[type] || "";
+    }
+
     _formatCPU(cpu) {
 
         if (!cpu) return "";
@@ -322,7 +351,7 @@ export class RezMonIndicator extends Button {
 
         if (values.length === 0) return "";
 
-        return `CPU${this.b_open}${values.join(` ${this.delimiter} `)}${this.b_close}`;
+        return `${this._getPrefix('cpu')}${this.b_open}${values.join(` ${this.delimiter} `)}${this.b_close}`;
     }
 
     _formatGPU(gpu) {
@@ -330,7 +359,7 @@ export class RezMonIndicator extends Button {
         if (!gpu) return "";
 
         if (gpu.sleeping)
-            return `GPU${this.b_open}Sleep${this.b_close}`;
+            return `${this._getPrefix('gpu')}${this.b_open}Sleep${this.b_close}`;
 
         const values = [];
 
@@ -378,13 +407,13 @@ export class RezMonIndicator extends Button {
 
         if (values.length === 0) {
             if (this.gpuVramUsed || this.gpuVramFree || this.gpuVramPercent)
-                return `GPU${this.b_open}Shared${this.b_close}`;
+                return `${this._getPrefix('gpu')}${this.b_open}Shared${this.b_close}`;
             if (this.gpuUsage || this.gpuClock || this.gpuTemp)
-                return `GPU${this.b_open}${gpu.name || 'Active'}${this.b_close}`;
+                return `${this._getPrefix('gpu')}${this.b_open}${gpu.name || 'Active'}${this.b_close}`;
             return "";
         }
 
-        return `GPU${this.b_open}${values.join(` ${this.delimiter} `)}${this.b_close}`;
+        return `${this._getPrefix('gpu')}${this.b_open}${values.join(` ${this.delimiter} `)}${this.b_close}`;
     }
 
     _formatRAM(ram) {
@@ -413,7 +442,7 @@ export class RezMonIndicator extends Button {
 
         if (values.length === 0) return "";
 
-        return `RAM${this.b_open}${values.join(` ${this.delimiter} `)}${this.b_close}`;
+        return `${this._getPrefix('ram')}${this.b_open}${values.join(` ${this.delimiter} `)}${this.b_close}`;
     }
 
     _formatSWAP(swap) {
@@ -442,7 +471,7 @@ export class RezMonIndicator extends Button {
 
         if (values.length === 0) return "";
 
-        return `SWAP${this.b_open}${values.join(` ${this.delimiter} `)}${this.b_close}`;
+        return `${this._getPrefix('swap')}${this.b_open}${values.join(` ${this.delimiter} `)}${this.b_close}`;
     }
 
     _formatDisk(disk) {
@@ -498,7 +527,7 @@ export class RezMonIndicator extends Button {
 
         if (values.length === 0) return "";
 
-        return `DISK${this.b_open}${values.join(` ${this.delimiter} `)}${this.b_close}`;
+        return `${this._getPrefix('disk')}${this.b_open}${values.join(` ${this.delimiter} `)}${this.b_close}`;
     }
 
     _formatNET(net) {
@@ -527,7 +556,7 @@ export class RezMonIndicator extends Button {
 
         if (values.length === 0) return "";
 
-        return `NET${this.b_open}${values.join(` ${this.delimiter} `)}${this.b_close}${units[u]}`;
+        return `${this._getPrefix('net')}${this.b_open}${values.join(` ${this.delimiter} `)}${this.b_close}${units[u]}`;
     }
 
     stop() {
