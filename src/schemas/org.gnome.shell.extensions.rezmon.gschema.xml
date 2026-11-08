@@ -65,5 +65,13 @@
 
     <key name="temp-warn-threshold" type="i"><default>75</default></key>
     <key name="temp-crit-threshold" type="i"><default>85</default></key>
+
+    <!-- Icons / Symbols -->
+    <key name="symbol-cpu" type="s"><default>"⚡"</default></key>
+    <key name="symbol-gpu" type="s"><default>"🎮"</default></key>
+    <key name="symbol-ram" type="s"><default>"🧠"</default></key>
+    <key name="symbol-swap" type="s"><default>"⇄"</default></key>
+    <key name="symbol-disk" type="s"><default>"💽"</default></key>
+    <key name="symbol-net" type="s"><default>"📶"</default></key>
   </schema>
 </schemalist>

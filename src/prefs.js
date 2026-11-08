@@ -274,6 +274,105 @@ export default class RezMonPreferences extends ExtensionPreferences {
 
         /*
         --------------------
+        CUSTOM METRIC ICONS
+        --------------------
+        */
+
+        const iconGroup = new Adw.PreferencesGroup({
+            title: _("Custom Metric Icons / Symbols"),
+            description: _("Select or customize the symbol used for each metric"),
+        });
+        appearancePage.add(iconGroup);
+
+        const cpuPresets = [
+            { label: _("⚡  Lightning (Default)"), value: "⚡" },
+            { label: _("⚙  Gear"), value: "⚙" },
+            { label: _("🔲  Processor Die"), value: "🔲" },
+            { label: _("⎈  Processor Core"), value: "⎈" },
+            { label: _("💻  Computer"), value: "💻" },
+            { label: _("🖥  Desktop"), value: "🖥" },
+        ];
+
+        const gpuPresets = [
+            { label: _("🎮  Gamepad (Default)"), value: "🎮" },
+            { label: _("🖥  Display Monitor"), value: "🖥" },
+            { label: _("🎬  Clapper / Video"), value: "🎬" },
+            { label: _("🖼  Frame / Graphics"), value: "🖼" },
+            { label: _("🕹  Joystick"), value: "🕹" },
+        ];
+
+        const ramPresets = [
+            { label: _("🧠  Brain (Default)"), value: "🧠" },
+            { label: _("🗄  Memory Bank"), value: "🗄" },
+            { label: _("▮  Memory Stick"), value: "▮" },
+            { label: _("▤  Matrix"), value: "▤" },
+            { label: _("📦  Storage Blocks"), value: "📦" },
+        ];
+
+        const swapPresets = [
+            { label: _("⇄  Horizontal Arrows (Default)"), value: "⇄" },
+            { label: _("⇅  Vertical Arrows"), value: "⇅" },
+            { label: _("⇆  Left-Right Arrows"), value: "⇆" },
+            { label: _("⇋  Exchange Harpoons"), value: "⇋" },
+        ];
+
+        const diskPresets = [
+            { label: _("💽  Drive Disc (Default)"), value: "💽" },
+            { label: _("🖴  Hard Disk"), value: "🖴" },
+            { label: _("💾  Floppy Disk"), value: "💾" },
+            { label: _("📁  Folder / Storage"), value: "📁" },
+            { label: _("🗄  Filing Cabinet"), value: "🗄" },
+        ];
+
+        const netPresets = [
+            { label: _("📶  Signal Bars (Default)"), value: "📶" },
+            { label: _("🌐  Globe"), value: "🌐" },
+            { label: _("⇅  Upload / Download"), value: "⇅" },
+            { label: _("📡  Satellite"), value: "📡" },
+            { label: _("🖧  LAN Network"), value: "🖧" },
+        ];
+
+        const selectors = [];
+        const addSelector = (title, key, presets, defaultVal) => {
+            const s = this._createIconSelectorRow(title, key, presets, defaultVal, settings);
+            iconGroup.add(s.row);
+            iconGroup.add(s.entryRow);
+            selectors.push(s);
+        };
+
+        addSelector(_("CPU Icon"), "symbol-cpu", cpuPresets, "⚡");
+        addSelector(_("GPU Icon"), "symbol-gpu", gpuPresets, "🎮");
+        addSelector(_("RAM Icon"), "symbol-ram", ramPresets, "🧠");
+        addSelector(_("SWAP Icon"), "symbol-swap", swapPresets, "⇄");
+        addSelector(_("Disk Icon"), "symbol-disk", diskPresets, "💽");
+        addSelector(_("Network Icon"), "symbol-net", netPresets, "📶");
+
+        const resetIconsRow = new Adw.ActionRow({
+            title: _("Reset Icons to Defaults"),
+            subtitle: _("Revert all metric symbols back to: ⚡ 🎮 🧠 ⇄ 💽 📶"),
+        });
+
+        const resetIconsButton = new Gtk.Button({
+            label: _("Reset"),
+            valign: Gtk.Align.CENTER,
+            css_classes: ['destructive-action'],
+        });
+
+        resetIconsButton.connect('clicked', () => {
+            settings.set_string('symbol-cpu', '⚡');
+            settings.set_string('symbol-gpu', '🎮');
+            settings.set_string('symbol-ram', '🧠');
+            settings.set_string('symbol-swap', '⇄');
+            settings.set_string('symbol-disk', '💽');
+            settings.set_string('symbol-net', '📶');
+            selectors.forEach(s => s.updateState());
+        });
+
+        resetIconsRow.add_suffix(resetIconsButton);
+        iconGroup.add(resetIconsRow);
+
+        /*
+        --------------------
         ADVANCED PAGE
         --------------------
         */
@@ -404,6 +503,65 @@ export default class RezMonPreferences extends ExtensionPreferences {
         });
 
         return row;
+    }
+
+    _createIconSelectorRow(title, key, presets, defaultVal, settings) {
+        const row = new Adw.ComboRow({ title });
+        const labels = presets.map(p => p.label);
+        labels.push(_("Custom…"));
+        const values = presets.map(p => p.value);
+
+        const model = new Gtk.StringList();
+        labels.forEach(l => model.append(l));
+        row.model = model;
+
+        const entryRow = new Adw.EntryRow({
+            title: `${title} ` + _("(Custom Symbol)"),
+            show_apply_button: true,
+        });
+
+        const updateState = () => {
+            const currentVal = settings.get_string(key) || defaultVal;
+            const presetIdx = values.indexOf(currentVal);
+            if (presetIdx >= 0) {
+                row.selected = presetIdx;
+                entryRow.set_visible(false);
+                entryRow.text = currentVal;
+            } else {
+                row.selected = values.length; // "Custom…"
+                entryRow.set_visible(true);
+                entryRow.text = currentVal;
+            }
+        };
+
+        updateState();
+
+        row.connect('notify::selected', () => {
+            if (row.selected < values.length) {
+                const selectedVal = values[row.selected];
+                settings.set_string(key, selectedVal);
+                entryRow.set_visible(false);
+                entryRow.text = selectedVal;
+            } else {
+                entryRow.set_visible(true);
+            }
+        });
+
+        entryRow.connect('apply', () => {
+            const txt = entryRow.text.trim();
+            if (txt) {
+                settings.set_string(key, txt);
+            }
+        });
+
+        entryRow.connect('notify::text', () => {
+            const txt = entryRow.text.trim();
+            if (txt) {
+                settings.set_string(key, txt);
+            }
+        });
+
+        return { row, entryRow, updateState };
     }
 
     _buildOrderRows(orderGroup, settings) {

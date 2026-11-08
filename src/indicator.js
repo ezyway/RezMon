@@ -243,7 +243,7 @@ export class RezMonIndicator extends Button {
         const cpuBar = this._makeProgressBar(cpuPct, 14);
         const cpuClock = Number.isFinite(cpu?.clock) ? `  │  ${cpu.clock.toFixed(2)} GHz` : '';
         const cpuTemp = Number.isFinite(cpu?.temp) ? `  │  ${this._formatTemperature(cpu.temp)}` : '';
-        lines.push(`<b>⚡ CPU</b>  <span alpha="70%">${GLib.markup_escape_text(cpuInfo.model, -1)}</span>`);
+        lines.push(`<b>${this.symbolCpu || '⚡'} CPU</b>  <span alpha="70%">${GLib.markup_escape_text(cpuInfo.model, -1)}</span>`);
         lines.push(`  <span font_family="monospace">${cpuBar}</span> <b>${cpuPct}%</b>${cpuClock}${cpuTemp}`);
 
         // Memory (RAM)
@@ -255,7 +255,7 @@ export class RezMonIndicator extends Button {
             const ramTotal = ((ram.used || 0) + (ram.free || 0)).toFixed(1);
             const ramFree = (ram.free || 0).toFixed(1);
             lines.push(``);
-            lines.push(`<b>🧠 RAM</b>  <b>${ramUsed} GB</b> / ${ramTotal} GB (<span alpha="70%">Free: ${ramFree} GB</span>)`);
+            lines.push(`<b>${this.symbolRam || '🧠'} RAM</b>  <b>${ramUsed} GB</b> / ${ramTotal} GB (<span alpha="70%">Free: ${ramFree} GB</span>)`);
             lines.push(`  <span font_family="monospace">${ramBar}</span> <b>${ramPct}%</b>`);
         }
 
@@ -267,7 +267,7 @@ export class RezMonIndicator extends Button {
             const swapUsed = (swap.used || 0).toFixed(1);
             const swapTotal = ((swap.used || 0) + (swap.free || 0)).toFixed(1);
             lines.push(``);
-            lines.push(`<b>⇄ SWAP</b>  <b>${swapUsed} GB</b> / ${swapTotal} GB`);
+            lines.push(`<b>${this.symbolSwap || '⇄'} SWAP</b>  <b>${swapUsed} GB</b> / ${swapTotal} GB`);
             lines.push(`  <span font_family="monospace">${swapBar}</span> <b>${swapPct}%</b>`);
         }
 
@@ -277,13 +277,13 @@ export class RezMonIndicator extends Button {
             const gpuTitle = gpu.name ? GLib.markup_escape_text(gpu.name, -1) : 'GPU';
             lines.push(``);
             if (gpu.sleeping) {
-                lines.push(`<b>🎮 GPU</b>  <span alpha="70%">${gpuTitle}</span> <span alpha="50%">(D3cold Sleep)</span>`);
+                lines.push(`<b>${this.symbolGpu || '🎮'} GPU</b>  <span alpha="70%">${gpuTitle}</span> <span alpha="50%">(D3cold Sleep)</span>`);
             } else {
                 const gpuPct = Number.isFinite(gpu.usage) ? Math.round(gpu.usage) : 0;
                 const gpuBar = this._makeProgressBar(gpuPct, 14);
                 const gpuTemp = Number.isFinite(gpu.temp) ? `  │  ${this._formatTemperature(gpu.temp)}` : '';
                 const vram = Number.isFinite(gpu.vramUsed) ? `  │  VRAM: <b>${gpu.vramUsed.toFixed(1)}G</b>` : '';
-                lines.push(`<b>🎮 GPU</b>  <span alpha="70%">${gpuTitle}</span>`);
+                lines.push(`<b>${this.symbolGpu || '🎮'} GPU</b>  <span alpha="70%">${gpuTitle}</span>`);
                 lines.push(`  <span font_family="monospace">${gpuBar}</span> <b>${gpuPct}%</b>${gpuTemp}${vram}`);
             }
         }
@@ -298,7 +298,7 @@ export class RezMonIndicator extends Button {
             const rRate = this._formatDataRate(disk.read || 0);
             const wRate = this._formatDataRate(disk.write || 0);
             lines.push(``);
-            lines.push(`<b>💽 Storage (/)</b>  <b>${usedStr}</b> / ${totalStr}`);
+            lines.push(`<b>${this.symbolDisk || '💽'} Storage (/)</b>  <b>${usedStr}</b> / ${totalStr}`);
             lines.push(`  <span font_family="monospace">${diskBar}</span> <b>${diskPct}%</b>  │  I/O: R ${rRate}  W ${wRate}`);
         }
 
@@ -309,7 +309,7 @@ export class RezMonIndicator extends Button {
             const down = this._formatDataRate(net.down || 0);
             const up = this._formatDataRate(net.up || 0);
             lines.push(``);
-            lines.push(`<b>📶 Network (${GLib.markup_escape_text(iface, -1)})</b>  ↓ <b>${down}</b>  │  ↑ <b>${up}</b>`);
+            lines.push(`<b>${this.symbolNet || '📶'} Network (${GLib.markup_escape_text(iface, -1)})</b>  ↓ <b>${down}</b>  │  ↑ <b>${up}</b>`);
         }
 
         // Top Resource Consumers (Vertical list)
@@ -413,6 +413,14 @@ export class RezMonIndicator extends Button {
         this.spacing = spacingMap[this._settings.get_string("spacing")] || "    ";
         this.tempUnit = this._settings.get_string("temp-unit") || "celsius";
         this.labelStyle = this._settings.get_string("label-style") || "text";
+
+        // custom metric icons
+        this.symbolCpu = this._settings.get_string('symbol-cpu') || '⚡';
+        this.symbolGpu = this._settings.get_string('symbol-gpu') || '🎮';
+        this.symbolRam = this._settings.get_string('symbol-ram') || '🧠';
+        this.symbolSwap = this._settings.get_string('symbol-swap') || '⇄';
+        this.symbolDisk = this._settings.get_string('symbol-disk') || '💽';
+        this.symbolNet = this._settings.get_string('symbol-net') || '📶';
 
         // metric ordering
         const savedOrder = this._settings.get_strv('metric-order');
@@ -592,26 +600,27 @@ export class RezMonIndicator extends Button {
         if (this.labelStyle === 'none')
             return "";
 
+        const symbols = {
+            cpu: this.symbolCpu || "⚡",
+            gpu: this.symbolGpu || "🎮",
+            ram: this.symbolRam || "🧠",
+            swap: this.symbolSwap || "⇄",
+            disk: this.symbolDisk || "💽",
+            net: this.symbolNet || "📶"
+        };
+
         if (this.labelStyle === 'symbol') {
-            const symbols = {
-                cpu: "⚡",
-                gpu: "🎮",
-                ram: "🧠",
-                swap: "⇄",
-                disk: "💽",
-                net: "📶"
-            };
             return symbols[type] || "";
         }
 
         if (this.labelStyle === 'both') {
             const both = {
-                cpu: "⚡ CPU",
-                gpu: "🎮 GPU",
-                ram: "🧠 RAM",
-                swap: "⇄ SWAP",
-                disk: "💽 DISK",
-                net: "📶 NET"
+                cpu: `${symbols.cpu} CPU`,
+                gpu: `${symbols.gpu} GPU`,
+                ram: `${symbols.ram} RAM`,
+                swap: `${symbols.swap} SWAP`,
+                disk: `${symbols.disk} DISK`,
+                net: `${symbols.net} NET`
             };
             return both[type] || "";
         }
