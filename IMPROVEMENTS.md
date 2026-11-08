@@ -6,36 +6,22 @@
 
 ## Table of Contents
 
-1. [Dropdown Menu Dashboard & Utilities](#1-dropdown-menu-dashboard--utilities)
-   - [1.1 Dynamic Terminal System Monitor Launchers (`btop`, `htop`, `resources`)](#11-dynamic-terminal-system-monitor-launchers-btop-htop-resources)
-2. [Network & Data Accuracy Enhancements](#2-network--data-accuracy-enhancements)
-   - [2.1 Interface Selection (Auto vs Specific Interface / VPN)](#21-interface-selection-auto-vs-specific-interface--vpn)
-   - [2.2 Independent Up/Down Scaling & Fractional Decimals](#22-independent-updown-scaling--fractional-decimals)
-   - [2.3 Cumulative Session Traffic Counters](#23-cumulative-session-traffic-counters)
-3. [Internationalization, CI/CD & Code Quality](#3-internationalization-cicd--code-quality)
-   - [3.1 Gettext Internationalization (i18n / Localization)](#31-gettext-internationalization-i18n--localization)
-   - [3.2 Automated GitHub Actions CI & Packaging](#32-automated-github-actions-ci--packaging)
-   - [3.3 Developer Tooling & Makefile Targets](#33-developer-tooling--makefile-targets)
-4. [Prioritized Implementation Matrix](#4-prioritized-implementation-matrix)
-5. [Completed Features & Enhancements](#5-completed-features--enhancements)
+1. [Network & Data Accuracy Enhancements](#1-network--data-accuracy-enhancements)
+   - [1.1 Interface Selection (Auto vs Specific Interface / VPN)](#11-interface-selection-auto-vs-specific-interface--vpn)
+   - [1.2 Independent Up/Down Scaling & Fractional Decimals](#12-independent-updown-scaling--fractional-decimals)
+   - [1.3 Cumulative Session Traffic Counters](#13-cumulative-session-traffic-counters)
+2. [Internationalization, CI/CD & Code Quality](#2-internationalization-cicd--code-quality)
+   - [2.1 Gettext Internationalization (i18n / Localization)](#21-gettext-internationalization-i18n--localization)
+   - [2.2 Automated GitHub Actions CI & Packaging](#22-automated-github-actions-ci--packaging)
+   - [2.3 Developer Tooling & Makefile Targets](#23-developer-tooling--makefile-targets)
+3. [Prioritized Implementation Matrix](#3-prioritized-implementation-matrix)
+4. [Completed Features & Enhancements](#4-completed-features--enhancements)
 
 ---
 
-## 1. Dropdown Menu Dashboard & Utilities
+## 1. Network & Data Accuracy Enhancements
 
-### 1.1 Dynamic Terminal System Monitor Launchers (`btop`, `htop`, `resources`)
-* **Target Files:** `src/indicator.js`
-* **Motivation:**
-  Many advanced users use CLI monitors like `btop` or `htop`, or Flatpak apps like `Resources` (`net.lutris.Resources` / `resources`).
-* **Proposed Implementation:**
-  - Check for existence via `GLib.find_program_in_path()` for `btop`, `htop`, or `resources`.
-  - Add quick-launch items in the menu for available terminal or graphical tools.
-
----
-
-## 2. Network & Data Accuracy Enhancements
-
-### 2.1 Interface Selection (Auto vs Specific Interface / VPN)
+### 1.1 Interface Selection (Auto vs Specific Interface / VPN)
 * **Target Files:** `src/metrics/net.js`, `src/schemas/...gschema.xml`, `src/prefs.js`
 * **Motivation:**
   Currently, RezMon always monitors the default gateway interface. Users working through VPN tunnels (`tun0`, `wg0`), container interfaces (`docker0`), or secondary NICs cannot monitor that traffic.
@@ -44,7 +30,7 @@
   - In `prefs.js`, populate an `Adw.ComboRow` with `'Auto (Default Route)'` plus all detected interfaces from `/proc/net/dev`.
   - In `updateNET()`, if `net-interface !== 'auto'`, track the user-specified interface.
 
-### 2.2 Independent Up/Down Scaling & Fractional Decimals
+### 1.2 Independent Up/Down Scaling & Fractional Decimals
 * **Target Files:** `src/indicator.js`
 * **Motivation:**
   Currently, download and upload share a single unit suffix. If upload is 2.5 MB/s and download is 400 KB/s, download is divided by 1024, resulting in `0.39 MB/s`, which `toFixed(0)` truncates to `↓ 00 MB/s`.
@@ -52,7 +38,7 @@
   - Option A: Format each direction with its own unit when units differ: `↓ 400KB/s | ↑ 2.5MB/s`.
   - Option B: Use 1 decimal place (`toFixed(1)`) whenever the value is `< 10` (e.g. `↓ 0.4 | ↑ 2.5 MB/s`).
 
-### 2.3 Cumulative Session Traffic Counters
+### 1.3 Cumulative Session Traffic Counters
 * **Target Files:** `src/metrics/net.js`, `src/indicator.js`
 * **Motivation:**
   Users on metered cellular data or limited internet connections want to know total data consumed during the session.
@@ -62,9 +48,9 @@
 
 ---
 
-## 3. Internationalization, CI/CD & Code Quality
+## 2. Internationalization, CI/CD & Code Quality
 
-### 3.1 Gettext Internationalization (i18n / Localization)
+### 2.1 Gettext Internationalization (i18n / Localization)
 * **Target Files:** `po/`, `src/extension.js`, `src/prefs.js`, `src/indicator.js`
 * **Motivation:**
   Currently, all UI labels ("Show CPU", "Usage %", "Temperature", "Open Settings", etc.) are hardcoded in English. GNOME Extensions review encourages `gettext` domains.
@@ -73,7 +59,7 @@
   - Wrap UI strings with `_("...")`.
   - Add template `po/rezmon.pot` and `Makefile` target `make pot` / `make mo`.
 
-### 3.2 Automated GitHub Actions CI & Packaging
+### 2.2 Automated GitHub Actions CI & Packaging
 * **Target Files:** `.github/workflows/ci.yml`, `.github/workflows/release.yml`
 * **Motivation:**
   Automates code linting, syntax verification, schema validation, and release zip generation on every PR and git tag.
@@ -83,7 +69,7 @@
   - Test module imports via `gjs -m`.
   - Build release zip and attach to GitHub Release assets.
 
-### 3.3 Developer Tooling & Makefile Targets
+### 2.3 Developer Tooling & Makefile Targets
 * **Target Files:** `Makefile`
 * **Additions:**
   - `make test`: Executes test suite under `gjs`.
@@ -93,19 +79,17 @@
 
 ---
 
-## 4. Prioritized Implementation Matrix
+## 3. Prioritized Implementation Matrix
 
 | Phase | Focus Area | Pending Milestone Features | Status |
 | :--- | :--- | :--- | :--- |
 | **Phase 1** | **Network Accuracy** | Interface Selection (`tun0`/VPN), Independent Up/Down Scaling & Fractional Decimals | Ready to Implement |
-| **Phase 2** | **Dropdown Dashboard** | Dropdown System Summary Card (Done), Top Resource Consumers (CPU/RAM snapshot) | In Progress |
-| **Phase 3** | **Utilities & Launchers** | Dynamic CLI / App Monitor Launchers (`btop`, `htop`, `resources`) | Planned |
-| **Phase 4** | **Data Tracking** | Cumulative Session Data Counters (session RX/TX) | Planned |
-| **Phase 5** | **i18n & Automation** | Gettext Localization (`po/`), GitHub Actions CI/CD, Makefile developer targets | Planned |
+| **Phase 2** | **Data Tracking** | Cumulative Session Data Counters (session RX/TX) | Planned |
+| **Phase 3** | **i18n & Automation** | Gettext Localization (`po/`), GitHub Actions CI/CD, Makefile developer targets | Planned |
 
 ---
 
-## 5. Completed Features & Enhancements
+## 4. Completed Features & Enhancements
 
 - **v21 Audit & Foundation Overhaul**: Fixed unbounded network loop hang, eliminated multi-gigabyte memory spikes, removed sync bash forks, and optimized file I/O with early-exit procfs parsing.
 - **Swap Memory Monitoring (2.1)**: Dedicated SWAP metric section with used/free/percentage tracking, `/proc/meminfo` parsing, and alert threshold coloring.
@@ -119,6 +103,7 @@
 - **Rich Hover Tooltip (3.5)**: Instant multiline hardware overview card on hover with CPU/GPU/RAM/SWAP/Disk/Network details, live updates, and non-blocking click-through.
 - **Dropdown System Summary Dashboard (4.1)**: Embedded live quick status overview card in the popup menu with progress bars and CPU/RAM/SWAP/GPU/Disk/Network telemetry.
 - **Top Resource Consumers (4.2)**: On-demand asynchronous snapshot of top 3 CPU and Memory processes displayed in the menu with zero background overhead.
+- **Dynamic System Monitor Launchers (4.3)**: Automatic runtime discovery and launching of graphical monitors (Resources, GNOME System Monitor, Mission Center) and CLI tools (btop, htop) via terminal emulator.
 
 ---
 

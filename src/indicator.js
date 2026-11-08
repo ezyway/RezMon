@@ -83,22 +83,13 @@ export class RezMonIndicator extends Button {
         // 2. Separator
         this.menu.addMenuItem(new PopupSeparatorMenuItem());
 
-        // 3. System Monitor launcher
-        const monitorItem = new PopupMenuItem("System Monitor");
-        monitorItem.connect('activate', () => {
-            try {
-                const app = Gio.AppInfo.create_from_commandline(
-                    "gnome-system-monitor",
-                    null,
-                    Gio.AppInfoCreateFlags.NONE
-                );
-                if (app)
-                    app.launch([], null);
-            } catch (e) {
-                logError(e);
-            }
-        });
-        this.menu.addMenuItem(monitorItem);
+        // 3. Dynamic System Monitor Launchers
+        const monitors = this._getAvailableMonitors();
+        for (const mon of monitors) {
+            const item = new PopupMenuItem(mon.name);
+            item.connect('activate', () => mon.launch());
+            this.menu.addMenuItem(item);
+        }
 
         // 4. Open Settings
         const settingsItem = new PopupMenuItem("Open Settings");
@@ -117,6 +108,86 @@ export class RezMonIndicator extends Button {
                 }).catch(() => {});
             }
         }, this);
+    }
+
+    _getAvailableMonitors() {
+        const monitors = [];
+
+        // Graphical Monitors
+        if (GLib.find_program_in_path('gnome-system-monitor')) {
+            monitors.push({
+                name: 'GNOME System Monitor',
+                launch: () => this._launchApp('gnome-system-monitor'),
+            });
+        }
+        if (GLib.find_program_in_path('resources')) {
+            monitors.push({
+                name: 'Resources Monitor',
+                launch: () => this._launchApp('resources'),
+            });
+        }
+        if (GLib.find_program_in_path('mission-center') || GLib.find_program_in_path('io.missioncenter.MissionCenter')) {
+            const bin = GLib.find_program_in_path('mission-center') ? 'mission-center' : 'io.missioncenter.MissionCenter';
+            monitors.push({
+                name: 'Mission Center',
+                launch: () => this._launchApp(bin),
+            });
+        }
+
+        // Terminal Monitors
+        if (GLib.find_program_in_path('btop')) {
+            monitors.push({
+                name: 'btop (Terminal)',
+                launch: () => this._launchTerminal('btop'),
+            });
+        }
+        if (GLib.find_program_in_path('htop')) {
+            monitors.push({
+                name: 'htop (Terminal)',
+                launch: () => this._launchTerminal('htop'),
+            });
+        }
+
+        // Fallback default
+        if (monitors.length === 0) {
+            monitors.push({
+                name: 'System Monitor',
+                launch: () => this._launchApp('gnome-system-monitor'),
+            });
+        }
+
+        return monitors;
+    }
+
+    _launchApp(cmdLine) {
+        try {
+            const app = Gio.AppInfo.create_from_commandline(
+                cmdLine,
+                null,
+                Gio.AppInfoCreateFlags.NONE
+            );
+            if (app)
+                app.launch([], null);
+        } catch (e) {
+            logError(e);
+        }
+    }
+
+    _launchTerminal(cmd) {
+        const terminals = [
+            { bin: 'ptyxis', arg: '--' },
+            { bin: 'kgx', arg: '-e' },
+            { bin: 'gnome-terminal', arg: '--' },
+            { bin: 'x-terminal-emulator', arg: '-e' },
+            { bin: 'xterm', arg: '-e' },
+        ];
+        for (const t of terminals) {
+            if (GLib.find_program_in_path(t.bin)) {
+                this._launchApp(`${t.bin} ${t.arg} ${cmd}`);
+                return true;
+            }
+        }
+        return false;
     }
 
     _updateDashboard() {
