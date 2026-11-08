@@ -7,8 +7,7 @@
 ## Table of Contents
 
 1. [Dropdown Menu Dashboard & Utilities](#1-dropdown-menu-dashboard--utilities)
-   - [1.1 Top Resource Consumers (Process Snapshot)](#11-top-resource-consumers-process-snapshot)
-   - [1.2 Dynamic Terminal System Monitor Launchers (`btop`, `htop`, `resources`)](#12-dynamic-terminal-system-monitor-launchers-btop-htop-resources)
+   - [1.1 Dynamic Terminal System Monitor Launchers (`btop`, `htop`, `resources`)](#11-dynamic-terminal-system-monitor-launchers-btop-htop-resources)
 2. [Network & Data Accuracy Enhancements](#2-network--data-accuracy-enhancements)
    - [2.1 Interface Selection (Auto vs Specific Interface / VPN)](#21-interface-selection-auto-vs-specific-interface--vpn)
    - [2.2 Independent Up/Down Scaling & Fractional Decimals](#22-independent-updown-scaling--fractional-decimals)
@@ -24,15 +23,7 @@
 
 ## 1. Dropdown Menu Dashboard & Utilities
 
-### 1.1 Top Resource Consumers (Process Snapshot)
-* **Target Files:** `src/indicator.js`, `src/metrics/top.js`
-* **Motivation:**
-  When a user notices CPU or RAM spike to 100%, clicking the indicator should immediately identify which process is causing the spike (e.g. `chrome`, `cargo`, `docker`) without opening heavy external tools.
-* **Proposed Implementation:**
-  - Read top 3 CPU and RAM consumers on dropdown menu open (deferred until menu is toggled, zero background overhead).
-  - Display process names and PID/percentage directly in the menu.
-
-### 1.2 Dynamic Terminal System Monitor Launchers (`btop`, `htop`, `resources`)
+### 1.1 Dynamic Terminal System Monitor Launchers (`btop`, `htop`, `resources`)
 * **Target Files:** `src/indicator.js`
 * **Motivation:**
   Many advanced users use CLI monitors like `btop` or `htop`, or Flatpak apps like `Resources` (`net.lutris.Resources` / `resources`).
@@ -127,6 +118,7 @@
 - **Customizable Metric Ordering (3.4)**: Dynamic metric sequence evaluation with an interactive move up/down UI in General preferences and one-click reset to default.
 - **Rich Hover Tooltip (3.5)**: Instant multiline hardware overview card on hover with CPU/GPU/RAM/SWAP/Disk/Network details, live updates, and non-blocking click-through.
 - **Dropdown System Summary Dashboard (4.1)**: Embedded live quick status overview card in the popup menu with progress bars and CPU/RAM/SWAP/GPU/Disk/Network telemetry.
+- **Top Resource Consumers (4.2)**: On-demand asynchronous snapshot of top 3 CPU and Memory processes displayed in the menu with zero background overhead.
 
 ---
 

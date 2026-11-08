@@ -17,6 +17,7 @@ import { updateRAM } from './metrics/ram.js';
 import { updateSWAP } from './metrics/swap.js';
 import { updateDisk } from './metrics/disk.js';
 import { updateNET } from './metrics/net.js';
+import { getTopProcesses } from './metrics/top.js';
 
 export class RezMonIndicator extends Button {
 
@@ -110,6 +111,10 @@ export class RezMonIndicator extends Button {
         this.menu.connectObject('open-state-changed', (menu, isOpen) => {
             if (isOpen) {
                 this._updateDashboard();
+                getTopProcesses().then((top) => {
+                    this._topProcesses = top;
+                    this._updateDashboard();
+                }).catch(() => {});
             }
         }, this);
     }
@@ -208,6 +213,24 @@ export class RezMonIndicator extends Button {
             const up = this._formatDataRate(net.up || 0);
             lines.push(``);
             lines.push(`<b>Network (${GLib.markup_escape_text(iface, -1)})</b>  ↓ <b>${down}</b>  │  ↑ <b>${up}</b>`);
+        }
+
+        // Top Resource Consumers
+        if (this._topProcesses) {
+            lines.push(``);
+            lines.push(`<b>Top Consumers</b>`);
+            if (this._topProcesses.topCpu && this._topProcesses.topCpu.length > 0) {
+                const cpuItems = this._topProcesses.topCpu.map(p =>
+                    `<span alpha="75%">${GLib.markup_escape_text(p.name, -1)}</span> <b>${Math.round(p.cpu)}%</b>`
+                );
+                lines.push(`  CPU: ${cpuItems.join('  │  ')}`);
+            }
+            if (this._topProcesses.topMem && this._topProcesses.topMem.length > 0) {
+                const memItems = this._topProcesses.topMem.map(p =>
+                    `<span alpha="75%">${GLib.markup_escape_text(p.name, -1)}</span> <b>${p.mem.toFixed(1)}%</b>`
+                );
+                lines.push(`  RAM: ${memItems.join('  │  ')}`);
+            }
         }
 
         return lines.join('\n');
