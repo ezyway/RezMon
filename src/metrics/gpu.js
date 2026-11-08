@@ -2,10 +2,48 @@
 
 import GLib from 'gi://GLib';
 import Gio from 'gi://Gio';
-import { readFile } from '../utils/file.js';
+import { readFile, readFileLines } from '../utils/file.js';
 
 let detectedGPUs = null;
 let cachedPkgTempPath = null;
+
+function getSharedVram() {
+    let memTotalKb = 0;
+    let shmemKb = 0;
+
+    const lines = readFileLines('/proc/meminfo');
+    for (const line of lines) {
+        if (line.startsWith('MemTotal:')) {
+            memTotalKb = parseInt(line.split(/\s+/)[1], 10) || 0;
+        } else if (line.startsWith('Shmem:')) {
+            shmemKb = parseInt(line.split(/\s+/)[1], 10) || 0;
+        }
+        if (memTotalKb > 0 && shmemKb > 0) break;
+    }
+
+    if (memTotalKb > 0) {
+        // In Linux UMA graphics, DRM GEM memory is capped at 50% of system RAM
+        const totalKb = memTotalKb / 2;
+        const usedKb = shmemKb;
+        const freeKb = Math.max(0, totalKb - usedKb);
+
+        const vramUsed = usedKb / (1024 * 1024);
+        const vramFree = freeKb / (1024 * 1024);
+        const vramPercent = totalKb > 0 ? (usedKb / totalKb) * 100 : 0;
+
+        return {
+            vramUsed,
+            vramFree,
+            vramPercent,
+        };
+    }
+
+    return {
+        vramUsed: null,
+        vramFree: null,
+        vramPercent: null,
+    };
+}
 
 function getPackageTemp() {
     if (cachedPkgTempPath && GLib.file_test(cachedPkgTempPath, GLib.FileTest.EXISTS)) {
@@ -226,6 +264,11 @@ function queryAmd(gpus) {
             vramFree = Math.max(0, totalG - vramUsed);
             vramPercent = (u / t) * 100;
         }
+    } else {
+        const shared = getSharedVram();
+        vramUsed = shared.vramUsed;
+        vramFree = shared.vramFree;
+        vramPercent = shared.vramPercent;
     }
 
     return {
@@ -317,6 +360,11 @@ function queryIntel(gpus, state) {
             vramFree = a / (1024 * 1024 * 1024);
             vramPercent = (u / t) * 100;
         }
+    } else {
+        const shared = getSharedVram();
+        vramUsed = shared.vramUsed;
+        vramFree = shared.vramFree;
+        vramPercent = shared.vramPercent;
     }
 
     return {
@@ -347,19 +395,25 @@ export function updateGPU(state) {
         return null;
     }
 
-    // Auto mode: prefer dedicated GPU if present
+    // Auto mode: prefer active dedicated GPU if present
     if (gpus.nvidia) {
         const dgpu = queryNvidia(gpus);
-        if (dgpu) return dgpu;
+        if (dgpu && !dgpu.sleeping) return dgpu;
+        if (dgpu && dgpu.sleeping && !gpus.intel && !gpus.amd) return dgpu;
     }
 
     if (gpus.amd) {
         const dgpu = queryAmd(gpus);
-        if (dgpu) return dgpu;
+        if (dgpu && !dgpu.sleeping) return dgpu;
+        if (dgpu && dgpu.sleeping && !gpus.intel) return dgpu;
     }
 
     if (gpus.intel) {
         return queryIntel(gpus, state);
+    }
+
+    if (gpus.amd) {
+        return queryAmd(gpus);
     }
 
     return null;
