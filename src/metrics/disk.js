@@ -30,15 +30,15 @@ function getPhysicalDisks() {
     return physicalDisks;
 }
 
-export function updateDisk(state) {
-    if (state.showDisk === false) return null;
+export function updateDisk(state, { force = false } = {}) {
+    if (!force && state.showDisk === false) return null;
 
     let readRate = 0;
     let writeRate = 0;
     const now = Date.now();
 
     // 1. Throughput from /proc/diskstats
-    if (state.diskRead || state.diskWrite) {
+    if (force || state.diskRead || state.diskWrite) {
         try {
             const disks = getPhysicalDisks();
             const lines = readFileLines('/proc/diskstats');
@@ -80,7 +80,7 @@ export function updateDisk(state) {
     let spaceFreeG = null;
     let spacePercent = null;
 
-    if (state.diskSpaceUsed || state.diskSpaceFree || state.diskSpacePercent) {
+    if (force || state.diskSpaceUsed || state.diskSpaceFree || state.diskSpacePercent) {
         try {
             const rootFile = Gio.File.new_for_path('/');
             const info = rootFile.query_filesystem_info('filesystem::free,filesystem::size', null);

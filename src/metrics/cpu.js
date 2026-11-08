@@ -148,13 +148,13 @@ function getCPUClock() {
     return null;
 }
 
-export function updateCPU(state) {
+export function updateCPU(state, { force = false } = {}) {
 
     let cpu_usage = null;
     let ghz_value = null;
     let cpu_temp = null;
 
-    if (state.cpuUsage ?? true) {
+    if (force || (state.cpuUsage ?? true)) {
         try {
             const lines = readFileLines('/proc/stat');
 
@@ -187,11 +187,11 @@ export function updateCPU(state) {
         } catch (e) {}
     }
 
-    if (state.cpuClock ?? true) {
+    if (force || (state.cpuClock ?? true)) {
         ghz_value = getCPUClock();
     }
 
-    if (state.cpuTemp ?? true) {
+    if (force || (state.cpuTemp ?? true)) {
         const thermalPath = getThermalPath();
         if (thermalPath) {
             try {

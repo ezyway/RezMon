@@ -8,7 +8,6 @@ import GObject from 'gi://GObject';
 
 import { Button } from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import { PopupMenuItem, PopupBaseMenuItem, PopupSeparatorMenuItem } from 'resource:///org/gnome/shell/ui/popupMenu.js';
-import { uiGroup } from 'resource:///org/gnome/shell/ui/main.js';
 import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 
 import { readFileLines } from './utils/file.js';
@@ -44,7 +43,6 @@ export class RezMonIndicator extends Button {
         this._initValues();
         this._bindSettings();
         this._buildMenu();
-        this._initTooltip();
 
         this._updateMetrics();
     }
@@ -99,16 +97,27 @@ export class RezMonIndicator extends Button {
         });
         this.menu.addMenuItem(settingsItem);
 
-        // Update dashboard whenever menu opens
+        // Update dashboard and cadence whenever menu opens or closes
         this.menu.connectObject('open-state-changed', (menu, isOpen) => {
             if (isOpen) {
-                this._updateDashboard();
-                getTopProcesses().then((top) => {
-                    this._topProcesses = top;
-                    this._updateDashboard();
-                }).catch(() => {});
+                this._menuTicks = 0;
+                this._updateMetrics();
+                this._refreshTopProcesses();
+                this._restartLoop(1);
+            } else {
+                this._menuTicks = 0;
+                this._restartLoop(this.interval);
             }
         }, this);
+    }
+
+    _refreshTopProcesses() {
+        getTopProcesses().then((top) => {
+            this._topProcesses = top;
+            if (this.menu && this.menu.isOpen) {
+                this._updateDashboard();
+            }
+        }).catch(() => {});
     }
 
     _getAvailableMonitors() {
@@ -212,7 +221,7 @@ export class RezMonIndicator extends Button {
         lines.push(``);
 
         // CPU
-        const cpu = this._lastMetrics?.cpu || updateCPU(this);
+        const cpu = this._lastMetrics?.cpu || updateCPU(this, { force: true });
         const cpuInfo = this._getCpuHardwareInfo();
         const cpuPct = Number.isFinite(cpu?.usage) ? Math.round(cpu.usage) : 0;
         const cpuBar = this._makeProgressBar(cpuPct, 14);
@@ -235,7 +244,7 @@ export class RezMonIndicator extends Button {
         }
 
         // SWAP
-        const swap = this._lastMetrics?.swap || updateSWAP(this);
+        const swap = this._lastMetrics?.swap || updateSWAP(this, { force: true });
         if (swap && swap.hasSwap) {
             const swapPct = Number.isFinite(swap.percent) ? Math.round(swap.percent) : 0;
             const swapBar = this._makeProgressBar(swapPct, 14);
@@ -264,7 +273,7 @@ export class RezMonIndicator extends Button {
         }
 
         // Storage / Root Filesystem
-        const disk = this._lastMetrics?.disk || updateDisk(this);
+        const disk = this._lastMetrics?.disk || updateDisk(this, { force: true });
         if (disk) {
             const diskPct = Number.isFinite(disk.spacePercent) ? Math.round(disk.spacePercent) : 0;
             const diskBar = this._makeProgressBar(diskPct, 14);
@@ -398,24 +407,30 @@ export class RezMonIndicator extends Button {
         this.tempCritThreshold = this._settings.get_int('temp-crit-threshold') || 85;
 
         this.interval = this._settings.get_int("update-interval") || 1;
-        this.showTooltip = this._settings.get_boolean('show-tooltip');
-        if (!this.showTooltip)
-            this._hideTooltip();
 
-        this._restartLoop();
+        this._restartLoop(this.menu && this.menu.isOpen ? 1 : this.interval);
     }
 
-    _restartLoop() {
+    _restartLoop(interval = this.interval) {
 
-        if (this._timeout)
+        if (this._timeout) {
             GLib.source_remove(this._timeout);
+            this._timeout = null;
+        }
 
+        const sec = Math.max(1, interval || 1);
         this._timeout = GLib.timeout_add_seconds(
             GLib.PRIORITY_DEFAULT_IDLE,
-            this.interval,
+            sec,
             () => {
+                if (this.menu && this.menu.isOpen) {
+                    this._menuTicks = (this._menuTicks || 0) + 1;
+                    if (this._menuTicks % 3 === 0) {
+                        this._refreshTopProcesses();
+                    }
+                }
                 this._updateMetrics();
-                return true;
+                return GLib.SOURCE_CONTINUE;
             }
         );
     }
@@ -427,50 +442,38 @@ export class RezMonIndicator extends Button {
         if (!this._lastMetrics)
             this._lastMetrics = {};
 
-        const metricUpdaters = {
-            cpu: () => {
-                if (!this.showCPU) return null;
-                const cpu = updateCPU(this);
-                this._lastMetrics.cpu = cpu;
-                return this._formatCPU(cpu);
-            },
-            gpu: () => {
-                if (!this.showGPU) return null;
-                const gpu = updateGPU(this);
-                this._lastMetrics.gpu = gpu;
-                return this._formatGPU(gpu);
-            },
-            ram: () => {
-                if (!this.showRAM) return null;
-                const ram = updateRAM(this);
-                this._lastMetrics.ram = ram;
-                return this._formatRAM(ram);
-            },
-            swap: () => {
-                if (!this.showSWAP) return null;
-                const swap = updateSWAP(this);
-                this._lastMetrics.swap = swap;
-                return this._formatSWAP(swap);
-            },
-            disk: () => {
-                if (!this.showDisk) return null;
-                const disk = updateDisk(this);
-                this._lastMetrics.disk = disk;
-                return this._formatDisk(disk);
-            },
-            net: () => {
-                if (!this.showNET) return null;
-                const net = updateNET(this);
-                this._lastMetrics.net = net;
-                return this._formatNET(net);
-            },
+        const isMenuOpen = !!(this.menu && this.menu.isOpen);
+
+        if (isMenuOpen) {
+            this._lastMetrics.cpu = updateCPU(this, { force: true });
+            this._lastMetrics.gpu = updateGPU(this);
+            this._lastMetrics.ram = updateRAM(this);
+            this._lastMetrics.swap = updateSWAP(this, { force: true });
+            this._lastMetrics.disk = updateDisk(this, { force: true });
+            this._lastMetrics.net = updateNET(this);
+        } else {
+            if (this.showCPU) this._lastMetrics.cpu = updateCPU(this);
+            if (this.showGPU) this._lastMetrics.gpu = updateGPU(this);
+            if (this.showRAM) this._lastMetrics.ram = updateRAM(this);
+            if (this.showSWAP) this._lastMetrics.swap = updateSWAP(this);
+            if (this.showDisk) this._lastMetrics.disk = updateDisk(this);
+            if (this.showNET) this._lastMetrics.net = updateNET(this);
+        }
+
+        const formatters = {
+            cpu: () => (this.showCPU && this._lastMetrics.cpu) ? this._formatCPU(this._lastMetrics.cpu) : null,
+            gpu: () => (this.showGPU && this._lastMetrics.gpu) ? this._formatGPU(this._lastMetrics.gpu) : null,
+            ram: () => (this.showRAM && this._lastMetrics.ram) ? this._formatRAM(this._lastMetrics.ram) : null,
+            swap: () => (this.showSWAP && this._lastMetrics.swap) ? this._formatSWAP(this._lastMetrics.swap) : null,
+            disk: () => (this.showDisk && this._lastMetrics.disk) ? this._formatDisk(this._lastMetrics.disk) : null,
+            net: () => (this.showNET && this._lastMetrics.net) ? this._formatNET(this._lastMetrics.net) : null,
         };
 
         const currentOrder = this.metricOrder || ['cpu', 'gpu', 'ram', 'swap', 'disk', 'net'];
         for (const metric of currentOrder) {
-            const updater = metricUpdaters[metric];
-            if (updater) {
-                const formatted = updater();
+            const fmt = formatters[metric];
+            if (fmt) {
+                const formatted = fmt();
                 if (formatted)
                     parts.push(formatted);
             }
@@ -481,10 +484,8 @@ export class RezMonIndicator extends Button {
         else
             this.label.clutter_text.set_markup("RezMon");
 
-        if (this._tooltipActor && this._tooltipActor.visible) {
-            const markup = this._generateTooltipMarkup();
-            if (markup)
-                this._tooltipActor.clutter_text.set_markup(markup);
+        if (isMenuOpen) {
+            this._updateDashboard();
         }
     }
 
@@ -834,186 +835,6 @@ export class RezMonIndicator extends Button {
         }
     }
 
-    _initTooltip() {
-        this._tooltipActor = null;
-        this._tooltipTimer = 0;
-        this._lastMetrics = {};
-
-        this.connect('notify::hover', () => {
-            if (this.hover && this.showTooltip && !(this.menu && this.menu.isOpen)) {
-                if (this._tooltipTimer)
-                    GLib.source_remove(this._tooltipTimer);
-                this._tooltipTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 350, () => {
-                    this._showTooltip();
-                    this._tooltipTimer = 0;
-                    return GLib.SOURCE_REMOVE;
-                });
-            } else {
-                this._hideTooltip();
-            }
-        });
-
-        this.menu.connectObject('open-state-changed', (menu, isOpen) => {
-            if (isOpen)
-                this._hideTooltip();
-        }, this);
-    }
-
-    _showTooltip() {
-        if (!this.showTooltip || (this.menu && this.menu.isOpen))
-            return;
-
-        if (!this._tooltipActor) {
-            this._tooltipActor = new St.Label({
-                style_class: 'rezmon-tooltip',
-                style: 'background-color: rgba(28, 28, 32, 0.96); ' +
-                       'color: #ffffff; ' +
-                       'border: 1px solid rgba(255, 255, 255, 0.15); ' +
-                       'border-radius: 10px; ' +
-                       'padding: 12px 16px; ' +
-                       'font-size: 10.5pt; ' +
-                       'box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);',
-                reactive: false,
-            });
-            this._tooltipActor.clutter_text.set_use_markup(true);
-            uiGroup.add_child(this._tooltipActor);
-        }
-
-        const markup = this._generateTooltipMarkup();
-        if (!markup)
-            return;
-
-        this._tooltipActor.clutter_text.set_markup(markup);
-        this._tooltipActor.opacity = 0;
-        this._tooltipActor.show();
-
-        const extents = this.get_transformed_extents();
-        const [, width] = this._tooltipActor.get_preferred_width(-1);
-
-        const centerX = extents.get_x() + (extents.get_width() / 2);
-        const stageWidth = global.stage.width;
-        const x = Math.max(12, Math.min(Math.floor(centerX - (width / 2)), stageWidth - width - 12));
-        const y = extents.get_y() + extents.get_height() + 8;
-
-        this._tooltipActor.set_position(x, y);
-
-        this._tooltipActor.remove_all_transitions();
-        this._tooltipActor.ease({
-            opacity: 255,
-            duration: 150,
-            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-        });
-    }
-
-    _hideTooltip() {
-        if (this._tooltipTimer) {
-            GLib.source_remove(this._tooltipTimer);
-            this._tooltipTimer = 0;
-        }
-
-        if (this._tooltipActor && this._tooltipActor.visible) {
-            this._tooltipActor.remove_all_transitions();
-            this._tooltipActor.ease({
-                opacity: 0,
-                duration: 120,
-                mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-                onComplete: () => {
-                    if (this._tooltipActor)
-                        this._tooltipActor.hide();
-                },
-            });
-        }
-    }
-
-    _generateTooltipMarkup() {
-        const sections = [];
-
-        // CPU
-        const cpu = this._lastMetrics?.cpu || updateCPU(this);
-        const cpuInfo = this._getCpuHardwareInfo();
-        let cpuText = `<b>CPU</b>  <span alpha="70%">${GLib.markup_escape_text(cpuInfo.model, -1)} (${cpuInfo.cores} Cores)</span>\n`;
-        const cpuParts = [];
-        if (cpu && Number.isFinite(cpu.usage))
-            cpuParts.push(`Usage: <b>${Math.round(cpu.usage)}%</b>`);
-        if (cpu && Number.isFinite(cpu.clock))
-            cpuParts.push(`Clock: <b>${cpu.clock.toFixed(2)} GHz</b>`);
-        if (cpu && Number.isFinite(cpu.temp))
-            cpuParts.push(`Temp: <b>${this._formatTemperature(cpu.temp)}</b>`);
-        cpuText += `  ${cpuParts.length > 0 ? cpuParts.join('  │  ') : '<span alpha="60%">No data</span>'}`;
-        sections.push(cpuText);
-
-        // GPU
-        const gpu = this._lastMetrics?.gpu || updateGPU(this);
-        if (gpu) {
-            const gpuTitle = gpu.name ? GLib.markup_escape_text(gpu.name, -1) : 'GPU';
-            let gpuText = `<b>GPU</b>  <span alpha="70%">${gpuTitle}</span>\n`;
-            if (gpu.sleeping) {
-                gpuText += `  <span alpha="60%">(Power Saving / D3cold Sleep)</span>`;
-            } else {
-                const gpuParts = [];
-                if (Number.isFinite(gpu.usage))
-                    gpuParts.push(`Usage: <b>${Math.round(gpu.usage)}%</b>`);
-                if (Number.isFinite(gpu.clock))
-                    gpuParts.push(`Clock: <b>${gpu.clock} MHz</b>`);
-                if (Number.isFinite(gpu.temp))
-                    gpuParts.push(`Temp: <b>${this._formatTemperature(gpu.temp)}</b>`);
-                if (Number.isFinite(gpu.vramUsed)) {
-                    const totalV = Number.isFinite(gpu.vramFree) ? (gpu.vramUsed + gpu.vramFree).toFixed(1) : null;
-                    const pct = Number.isFinite(gpu.vramPercent) ? Math.round(gpu.vramPercent) : null;
-                    if (totalV && pct !== null)
-                        gpuParts.push(`VRAM: <b>${gpu.vramUsed.toFixed(1)}G/${totalV}G (${pct}%)</b>`);
-                    else
-                        gpuParts.push(`VRAM: <b>${gpu.vramUsed.toFixed(1)} GB</b>`);
-                }
-                gpuText += `  ${gpuParts.length > 0 ? gpuParts.join('  │  ') : '<span alpha="60%">Active</span>'}`;
-            }
-            sections.push(gpuText);
-        }
-
-        // Memory (RAM & SWAP)
-        const ram = this._lastMetrics?.ram || updateRAM(this);
-        const swap = this._lastMetrics?.swap || updateSWAP(this);
-        let memText = `<b>Memory</b>\n`;
-        if (ram) {
-            const totalR = ((ram.used || 0) + (ram.free || 0)).toFixed(1);
-            memText += `  RAM: <b>${(ram.used || 0).toFixed(1)}G</b> / ${totalR}G (<b>${Math.round(ram.percent || 0)}%</b>)  │  Free: <b>${(ram.free || 0).toFixed(1)}G</b>\n`;
-        }
-        if (swap && swap.hasSwap) {
-            const totalS = ((swap.used || 0) + (swap.free || 0)).toFixed(1);
-            memText += `  SWAP: <b>${(swap.used || 0).toFixed(1)}G</b> / ${totalS}G (<b>${Math.round(swap.percent || 0)}%</b>)  │  Free: <b>${(swap.free || 0).toFixed(1)}G</b>`;
-        } else if (swap && !swap.hasSwap) {
-            memText += `  SWAP: <span alpha="60%">No swap configured</span>`;
-        }
-        sections.push(memText);
-
-        // Storage / Disk
-        const disk = this._lastMetrics?.disk || updateDisk(this);
-        if (disk) {
-            const totalD = this._formatDiskCapacity((disk.spaceUsed || 0) + (disk.spaceFree || 0));
-            const usedD = this._formatDiskCapacity(disk.spaceUsed || 0);
-            const freeD = this._formatDiskCapacity(disk.spaceFree || 0);
-            let diskText = `<b>Disk & Storage</b>  <span alpha="70%">(Root /)</span>\n`;
-            diskText += `  Space: <b>${usedD}</b> / ${totalD} (<b>${Math.round(disk.spacePercent || 0)}%</b>)  │  Free: <b>${freeD}</b>\n`;
-            const rRate = this._formatDataRate(disk.read || 0);
-            const wRate = this._formatDataRate(disk.write || 0);
-            diskText += `  I/O: Read: <b>${rRate}</b>  │  Write: <b>${wRate}</b>`;
-            sections.push(diskText);
-        }
-
-        // Network
-        const net = this._lastMetrics?.net || updateNET(this);
-        if (net) {
-            const iface = this.prev_iface || 'Active';
-            let netText = `<b>Network</b>  <span alpha="70%">(${GLib.markup_escape_text(iface, -1)})</span>\n`;
-            const down = this._formatDataRate(net.down || 0);
-            const up = this._formatDataRate(net.up || 0);
-            netText += `  Speed: ↓ <b>${down}</b>  │  ↑ <b>${up}</b>`;
-            sections.push(netText);
-        }
-
-        return sections.join('\n\n');
-    }
-
     _formatDataRate(bytes) {
         if (!Number.isFinite(bytes) || bytes <= 0) return '0 B/s';
         const units = ['B/s', 'KB/s', 'MB/s', 'GB/s'];
@@ -1060,14 +881,6 @@ export class RezMonIndicator extends Button {
 
     destroy() {
         this.stop();
-        this._hideTooltip();
-
-        if (this._tooltipActor) {
-            if (this._tooltipActor.get_parent())
-                this._tooltipActor.get_parent().remove_child(this._tooltipActor);
-            this._tooltipActor.destroy();
-            this._tooltipActor = null;
-        }
 
         if (this._settingsChangedId) {
             this._settings.disconnect(this._settingsChangedId);

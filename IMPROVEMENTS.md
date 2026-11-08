@@ -71,7 +71,7 @@
 - **Symbolic Icons Option (3.2)**: Modern Unicode indicator mode (`⚙`, `🖥`, `🖴`, `⇄`, `💾`, `🌐`) as a compact visual alternative to text headers.
 - **Panel Position & Clock Repositioning (3.3)**: Position RezMon in Left/Center/Right panel boxes with order priority, plus Ubuntu centered clock repositioning with safe restore on extension disable.
 - **Customizable Metric Ordering (3.4)**: Dynamic metric sequence evaluation with an interactive move up/down UI in General preferences and one-click reset to default.
-- **Rich Hover Tooltip (3.5)**: Instant multiline hardware overview card on hover with CPU/GPU/RAM/SWAP/Disk/Network details, live updates, and non-blocking click-through.
+- **Hover Tooltip Removal & Live Menu Overview (3.5)**: Completely removed hover tooltip overlay to prevent panel clutter; upgraded popup menu system status overview to auto-refresh live every second while open.
 - **Dropdown System Summary Dashboard (4.1)**: Embedded live quick status overview card in the popup menu with progress bars and CPU/RAM/SWAP/GPU/Disk/Network telemetry.
 - **Top Resource Consumers (4.2)**: On-demand asynchronous snapshot of top 3 CPU and Memory processes displayed in the menu with zero background overhead.
 - **Dynamic System Monitor Launchers (4.3)**: Automatic runtime discovery and launching of graphical monitors (Resources, GNOME System Monitor, Mission Center) and CLI tools (btop, htop) via terminal emulator.

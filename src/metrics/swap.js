@@ -2,8 +2,8 @@
 
 import { readFileLines } from '../utils/file.js';
 
-export function updateSWAP(state) {
-    if (state.showSWAP === false) {
+export function updateSWAP(state = {}, { force = false } = {}) {
+    if (!force && state.showSWAP === false) {
         return null;
     }
 
