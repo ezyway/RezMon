@@ -5,6 +5,55 @@ import Gio from 'gi://Gio';
 import { readFile } from '../utils/file.js';
 
 let detectedGPUs = null;
+let cachedPkgTempPath = null;
+
+function getPackageTemp() {
+    if (cachedPkgTempPath && GLib.file_test(cachedPkgTempPath, GLib.FileTest.EXISTS)) {
+        const raw = readFile(cachedPkgTempPath);
+        if (raw) {
+            const val = parseFloat(raw.trim());
+            if (Number.isFinite(val)) return val / 1000;
+        }
+    }
+
+    const tzBase = '/sys/class/thermal';
+    const tzDir = Gio.File.new_for_path(tzBase);
+    const preferred = ['x86_pkg_temp', 'coretemp', 'cpu_thermal', 'cpu-thermal', 'soc_thermal'];
+    try {
+        if (tzDir.query_exists(null)) {
+            const enumerator = tzDir.enumerate_children(
+                'standard::name',
+                Gio.FileQueryInfoFlags.NONE,
+                null
+            );
+            let info;
+            const zones = [];
+            while ((info = enumerator.next_file(null)) !== null) {
+                const name = info.get_name();
+                if (name.startsWith('thermal_zone')) zones.push(name);
+            }
+            zones.sort();
+            for (const pref of preferred) {
+                for (const z of zones) {
+                    const type = readFile(`${tzBase}/${z}/type`);
+                    if (type && type.trim().toLowerCase() === pref) {
+                        const path = `${tzBase}/${z}/temp`;
+                        if (GLib.file_test(path, GLib.FileTest.EXISTS)) {
+                            cachedPkgTempPath = path;
+                            const raw = readFile(path);
+                            if (raw) {
+                                const val = parseFloat(raw.trim());
+                                if (Number.isFinite(val)) return val / 1000;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    } catch (e) {}
+
+    return null;
+}
 
 function scanGPUs() {
     if (detectedGPUs) return detectedGPUs;
@@ -105,7 +154,7 @@ function queryNvidia(gpus) {
         return {
             sleeping: false,
             name: 'NVIDIA',
-            usage: Number.isFinite(usage) ? usage : null,
+            usage: Number.isFinite(usage) ? usage : 0,
             temp: Number.isFinite(temp) ? temp : null,
             clock: Number.isFinite(clockMhz) ? clockMhz : null,
             vramUsed: Number.isFinite(vramUsedG) ? vramUsedG : null,
@@ -120,44 +169,54 @@ function queryNvidia(gpus) {
 function queryAmd(gpus) {
     if (!gpus.amd) return null;
     const dev = gpus.amd.devPath;
+    const path = gpus.amd.path;
 
     let usage = null;
-    const busy = readFile(`${dev}/gpu_busy_percent`);
+    const busy = (dev ? readFile(`${dev}/gpu_busy_percent`) : null) ||
+                 (path ? readFile(`${path}/gpu_busy_percent`) : null);
     if (busy) {
         const val = parseFloat(busy.trim());
-        if (Number.isFinite(val)) usage = val;
+        if (Number.isFinite(val)) usage = Math.min(100, Math.max(0, val));
     }
+    if (usage === null) usage = 0;
 
     let clock = null;
-    const clk = readFile(`${dev}/current_gfxclk`);
+    const clk = (dev ? readFile(`${dev}/current_gfxclk`) : null) ||
+                (path ? readFile(`${path}/current_gfxclk`) : null);
     if (clk) {
         const val = parseFloat(clk.trim());
         if (Number.isFinite(val)) clock = val;
     }
 
     let temp = null;
-    const hwmonDir = Gio.File.new_for_path(`${dev}/hwmon`);
+    const hwmonPath = dev ? `${dev}/hwmon` : `${path}/hwmon`;
+    const hwmonDir = Gio.File.new_for_path(hwmonPath);
     if (hwmonDir.query_exists(null)) {
         try {
             const enumerator = hwmonDir.enumerate_children('standard::name', Gio.FileQueryInfoFlags.NONE, null);
             let info;
             while ((info = enumerator.next_file(null)) !== null) {
                 const hName = info.get_name();
-                const tempFile = readFile(`${dev}/hwmon/${hName}/temp1_input`);
+                const tempFile = readFile(`${hwmonPath}/${hName}/temp1_input`);
                 if (tempFile) {
                     const raw = parseFloat(tempFile.trim());
-                    if (Number.isFinite(raw)) temp = raw / 1000;
-                    break;
+                    if (Number.isFinite(raw)) {
+                        temp = raw / 1000;
+                        break;
+                    }
                 }
             }
         } catch (e) {}
+    }
+    if (temp === null) {
+        temp = getPackageTemp();
     }
 
     let vramUsed = null;
     let vramFree = null;
     let vramPercent = null;
-    const usedBytes = readFile(`${dev}/mem_info_vram_used`);
-    const totalBytes = readFile(`${dev}/mem_info_vram_total`);
+    const usedBytes = dev ? readFile(`${dev}/mem_info_vram_used`) : null;
+    const totalBytes = dev ? readFile(`${dev}/mem_info_vram_total`) : null;
     if (usedBytes && totalBytes) {
         const u = parseFloat(usedBytes.trim());
         const t = parseFloat(totalBytes.trim());
@@ -184,29 +243,80 @@ function queryAmd(gpus) {
 function queryIntel(gpus, state) {
     if (!gpus.intel) return null;
     const path = gpus.intel.path;
+    const devPath = gpus.intel.devPath;
 
     let clock = null;
-    const curFreq = readFile(`${path}/gt_act_freq_mhz`) || readFile(`${path}/gt_cur_freq_mhz`);
+    const curFreq = readFile(`${path}/gt_act_freq_mhz`) ||
+                    readFile(`${path}/gt_cur_freq_mhz`) ||
+                    (devPath ? readFile(`${devPath}/gt_act_freq_mhz`) : null);
     if (curFreq) {
         const mhz = parseFloat(curFreq.trim());
         if (Number.isFinite(mhz)) clock = mhz;
     }
 
     let usage = null;
-    const rc6File = readFile(`${path}/power/rc6_residency_ms`);
+    const rc6File = readFile(`${path}/power/rc6_residency_ms`) ||
+                    readFile(`${path}/gt/gt0/rc6_residency_ms`) ||
+                    (devPath ? readFile(`${devPath}/power/rc6_residency_ms`) : null);
     const now = Date.now();
     if (rc6File) {
         const rc6 = parseInt(rc6File.trim(), 10);
-        if (Number.isFinite(rc6) && state.prev_intel_rc6 !== undefined && state.prev_intel_time) {
-            const dt = now - state.prev_intel_time;
-            const dRc6 = rc6 - state.prev_intel_rc6;
-            if (dt > 0 && dRc6 >= 0) {
-                const activeMs = Math.max(0, dt - dRc6);
-                usage = Math.min(100, Math.max(0, (activeMs / dt) * 100));
+        if (Number.isFinite(rc6)) {
+            if (state.prev_intel_rc6 !== undefined && state.prev_intel_time) {
+                const dt = now - state.prev_intel_time;
+                const dRc6 = rc6 - state.prev_intel_rc6;
+                if (dt > 0 && dRc6 >= 0) {
+                    const activeMs = Math.max(0, dt - dRc6);
+                    usage = Math.min(100, Math.max(0, (activeMs / dt) * 100));
+                }
+            } else {
+                usage = 0;
             }
+            state.prev_intel_rc6 = rc6;
+            state.prev_intel_time = now;
         }
-        state.prev_intel_rc6 = rc6;
-        state.prev_intel_time = now;
+    }
+    if (usage === null) usage = 0;
+
+    let temp = null;
+    if (devPath) {
+        const hwmonDir = Gio.File.new_for_path(`${devPath}/hwmon`);
+        if (hwmonDir.query_exists(null)) {
+            try {
+                const enumerator = hwmonDir.enumerate_children('standard::name', Gio.FileQueryInfoFlags.NONE, null);
+                let info;
+                while ((info = enumerator.next_file(null)) !== null) {
+                    const hName = info.get_name();
+                    const tempFile = readFile(`${devPath}/hwmon/${hName}/temp1_input`);
+                    if (tempFile) {
+                        const raw = parseFloat(tempFile.trim());
+                        if (Number.isFinite(raw)) {
+                            temp = raw / 1000;
+                            break;
+                        }
+                    }
+                }
+            } catch (e) {}
+        }
+    }
+    if (temp === null) {
+        temp = getPackageTemp();
+    }
+
+    let vramUsed = null;
+    let vramFree = null;
+    let vramPercent = null;
+    const lmemTotal = devPath ? (readFile(`${devPath}/lmem_total_bytes`) || readFile(`${path}/lmem_total_bytes`)) : null;
+    const lmemAvail = devPath ? (readFile(`${devPath}/lmem_avail_bytes`) || readFile(`${path}/lmem_avail_bytes`)) : null;
+    if (lmemTotal && lmemAvail) {
+        const t = parseFloat(lmemTotal.trim());
+        const a = parseFloat(lmemAvail.trim());
+        if (Number.isFinite(t) && Number.isFinite(a) && t > 0) {
+            const u = Math.max(0, t - a);
+            vramUsed = u / (1024 * 1024 * 1024);
+            vramFree = a / (1024 * 1024 * 1024);
+            vramPercent = (u / t) * 100;
+        }
     }
 
     return {
@@ -214,10 +324,10 @@ function queryIntel(gpus, state) {
         name: 'Intel',
         usage,
         clock,
-        temp: null,
-        vramUsed: null,
-        vramFree: null,
-        vramPercent: null,
+        temp,
+        vramUsed,
+        vramFree,
+        vramPercent,
     };
 }
 

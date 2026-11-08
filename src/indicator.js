@@ -282,13 +282,14 @@ export class RezMonIndicator extends Button {
 
         const values = [];
 
-        if (this.gpuUsage && Number.isFinite(gpu.usage)) {
-            const color = this._getColor(gpu.usage);
+        if (this.gpuUsage) {
+            const usage = Number.isFinite(gpu.usage) ? gpu.usage : 0;
+            const color = this._getColor(usage);
 
             if (color)
-                values.push(`<span foreground="${color}">${gpu.usage.toFixed(0)}%</span>`);
+                values.push(`<span foreground="${color}">${usage.toFixed(0)}%</span>`);
             else
-                values.push(`${gpu.usage.toFixed(0)}%`);
+                values.push(`${usage.toFixed(0)}%`);
         }
 
         if (this.gpuClock && Number.isFinite(gpu.clock)) {
@@ -326,7 +327,13 @@ export class RezMonIndicator extends Button {
                 values.push(`${gpu.vramPercent.toFixed(0)}%`);
         }
 
-        if (values.length === 0) return "";
+        if (values.length === 0) {
+            if (this.gpuVramUsed || this.gpuVramFree || this.gpuVramPercent)
+                return `GPU${this.b_open}Shared${this.b_close}`;
+            if (this.gpuUsage || this.gpuClock || this.gpuTemp)
+                return `GPU${this.b_open}${gpu.name || 'Active'}${this.b_close}`;
+            return "";
+        }
 
         return `GPU${this.b_open}${values.join(` ${this.delimiter} `)}${this.b_close}`;
     }
