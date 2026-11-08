@@ -4,12 +4,13 @@ import Adw from 'gi://Adw';
 import Gtk from 'gi://Gtk';
 import Gio from 'gi://Gio';
 
-import { ExtensionPreferences } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
+import { ExtensionPreferences, gettext as _ } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 import { readFileLines } from './utils/file.js';
 
 export default class RezMonPreferences extends ExtensionPreferences {
 
     fillPreferencesWindow(window) {
+        this.initTranslations();
 
         const settings = this.getSettings('org.gnome.shell.extensions.rezmon');
 
@@ -20,24 +21,24 @@ export default class RezMonPreferences extends ExtensionPreferences {
         */
 
         const generalPage = new Adw.PreferencesPage({
-            title: 'General',
+            title: _('General'),
             icon_name: 'preferences-system-symbolic'
         });
         window.add(generalPage);
 
-        const generalGroup = new Adw.PreferencesGroup({ title: "Toggle Components" });
+        const generalGroup = new Adw.PreferencesGroup({ title: _("Toggle Components") });
         generalPage.add(generalGroup);
 
-        generalGroup.add(this._createSwitchRow("Show CPU", settings, "show-cpu"));
-        generalGroup.add(this._createSwitchRow("Show GPU", settings, "show-gpu"));
-        generalGroup.add(this._createSwitchRow("Show RAM", settings, "show-ram"));
-        generalGroup.add(this._createSwitchRow("Show SWAP", settings, "show-swap"));
-        generalGroup.add(this._createSwitchRow("Show DISK", settings, "show-disk"));
-        generalGroup.add(this._createSwitchRow("Show NET", settings, "show-net"));
+        generalGroup.add(this._createSwitchRow(_("Show CPU"), settings, "show-cpu"));
+        generalGroup.add(this._createSwitchRow(_("Show GPU"), settings, "show-gpu"));
+        generalGroup.add(this._createSwitchRow(_("Show RAM"), settings, "show-ram"));
+        generalGroup.add(this._createSwitchRow(_("Show SWAP"), settings, "show-swap"));
+        generalGroup.add(this._createSwitchRow(_("Show DISK"), settings, "show-disk"));
+        generalGroup.add(this._createSwitchRow(_("Show NET"), settings, "show-net"));
 
         const orderGroup = new Adw.PreferencesGroup({
-            title: "Metric Display Order",
-            description: "Reorder how metrics appear on the top bar"
+            title: _("Metric Display Order"),
+            description: _("Reorder how metrics appear on the top bar")
         });
         generalPage.add(orderGroup);
 
@@ -51,17 +52,17 @@ export default class RezMonPreferences extends ExtensionPreferences {
         */
 
         const cpuPage = new Adw.PreferencesPage({
-            title: 'CPU',
+            title: _('CPU'),
             icon_name: 'utilities-system-monitor-symbolic'
         });
         window.add(cpuPage);
 
-        const cpuGroup = new Adw.PreferencesGroup({ title: "CPU Settings" });
+        const cpuGroup = new Adw.PreferencesGroup({ title: _("CPU Settings") });
         cpuPage.add(cpuGroup);
 
-        cpuGroup.add(this._createSwitchRow("Usage %", settings, "cpu-usage"));
-        cpuGroup.add(this._createSwitchRow("Clock", settings, "cpu-clock"));
-        cpuGroup.add(this._createSwitchRow("Temperature", settings, "cpu-temp"));
+        cpuGroup.add(this._createSwitchRow(_("Usage %"), settings, "cpu-usage"));
+        cpuGroup.add(this._createSwitchRow(_("Clock"), settings, "cpu-clock"));
+        cpuGroup.add(this._createSwitchRow(_("Temperature"), settings, "cpu-temp"));
 
         /*
         --------------------
@@ -70,29 +71,29 @@ export default class RezMonPreferences extends ExtensionPreferences {
         */
 
         const gpuPage = new Adw.PreferencesPage({
-            title: 'GPU',
+            title: _('GPU'),
             icon_name: 'video-display-symbolic'
         });
         window.add(gpuPage);
 
-        const gpuGroup = new Adw.PreferencesGroup({ title: "GPU Settings" });
+        const gpuGroup = new Adw.PreferencesGroup({ title: _("GPU Settings") });
         gpuPage.add(gpuGroup);
 
         gpuGroup.add(this._createComboRow(
-            "GPU Device",
+            _("GPU Device"),
             settings,
-            ["Auto (Dedicated when Active)", "Dedicated GPU", "Integrated GPU"],
+            [_("Auto (Dedicated when Active)"), _("Dedicated GPU"), _("Integrated GPU")],
             ["auto", "dedicated", "integrated"],
             (value) => settings.set_string("gpu-device", value),
             () => settings.get_string("gpu-device")
         ));
 
-        gpuGroup.add(this._createSwitchRow("Usage %", settings, "gpu-usage"));
-        gpuGroup.add(this._createSwitchRow("Clock", settings, "gpu-clock"));
-        gpuGroup.add(this._createSwitchRow("Temperature", settings, "gpu-temp"));
-        gpuGroup.add(this._createSwitchRow("VRAM Used", settings, "gpu-vram-used"));
-        gpuGroup.add(this._createSwitchRow("VRAM Free", settings, "gpu-vram-free"));
-        gpuGroup.add(this._createSwitchRow("VRAM Percent", settings, "gpu-vram-percent"));
+        gpuGroup.add(this._createSwitchRow(_("Usage %"), settings, "gpu-usage"));
+        gpuGroup.add(this._createSwitchRow(_("Clock"), settings, "gpu-clock"));
+        gpuGroup.add(this._createSwitchRow(_("Temperature"), settings, "gpu-temp"));
+        gpuGroup.add(this._createSwitchRow(_("VRAM Used"), settings, "gpu-vram-used"));
+        gpuGroup.add(this._createSwitchRow(_("VRAM Free"), settings, "gpu-vram-free"));
+        gpuGroup.add(this._createSwitchRow(_("VRAM Percent"), settings, "gpu-vram-percent"));
 
         /*
         --------------------
@@ -101,17 +102,17 @@ export default class RezMonPreferences extends ExtensionPreferences {
         */
 
         const ramPage = new Adw.PreferencesPage({
-            title: 'RAM',
+            title: _('RAM'),
             icon_name: 'drive-harddisk-symbolic'
         });
         window.add(ramPage);
 
-        const ramGroup = new Adw.PreferencesGroup({ title: "RAM Settings" });
+        const ramGroup = new Adw.PreferencesGroup({ title: _("RAM Settings") });
         ramPage.add(ramGroup);
 
-        ramGroup.add(this._createSwitchRow("Used", settings, "ram-used"));
-        ramGroup.add(this._createSwitchRow("Free", settings, "ram-free"));
-        ramGroup.add(this._createSwitchRow("Percent", settings, "ram-percent"));
+        ramGroup.add(this._createSwitchRow(_("Used"), settings, "ram-used"));
+        ramGroup.add(this._createSwitchRow(_("Free"), settings, "ram-free"));
+        ramGroup.add(this._createSwitchRow(_("Percent"), settings, "ram-percent"));
 
         /*
         --------------------
@@ -120,17 +121,17 @@ export default class RezMonPreferences extends ExtensionPreferences {
         */
 
         const swapPage = new Adw.PreferencesPage({
-            title: 'SWAP',
+            title: _('SWAP'),
             icon_name: 'drive-harddisk-symbolic'
         });
         window.add(swapPage);
 
-        const swapGroup = new Adw.PreferencesGroup({ title: "SWAP Settings" });
+        const swapGroup = new Adw.PreferencesGroup({ title: _("SWAP Settings") });
         swapPage.add(swapGroup);
 
-        swapGroup.add(this._createSwitchRow("Used", settings, "swap-used"));
-        swapGroup.add(this._createSwitchRow("Free", settings, "swap-free"));
-        swapGroup.add(this._createSwitchRow("Percent", settings, "swap-percent"));
+        swapGroup.add(this._createSwitchRow(_("Used"), settings, "swap-used"));
+        swapGroup.add(this._createSwitchRow(_("Free"), settings, "swap-free"));
+        swapGroup.add(this._createSwitchRow(_("Percent"), settings, "swap-percent"));
 
         /*
         --------------------
@@ -139,19 +140,19 @@ export default class RezMonPreferences extends ExtensionPreferences {
         */
 
         const diskPage = new Adw.PreferencesPage({
-            title: 'Disk',
+            title: _('Disk'),
             icon_name: 'drive-harddisk-symbolic'
         });
         window.add(diskPage);
 
-        const diskGroup = new Adw.PreferencesGroup({ title: "Disk Settings" });
+        const diskGroup = new Adw.PreferencesGroup({ title: _("Disk Settings") });
         diskPage.add(diskGroup);
 
-        diskGroup.add(this._createSwitchRow("Read Rate", settings, "disk-read"));
-        diskGroup.add(this._createSwitchRow("Write Rate", settings, "disk-write"));
-        diskGroup.add(this._createSwitchRow("Space Used", settings, "disk-space-used"));
-        diskGroup.add(this._createSwitchRow("Space Free", settings, "disk-space-free"));
-        diskGroup.add(this._createSwitchRow("Space %", settings, "disk-space-percent"));
+        diskGroup.add(this._createSwitchRow(_("Read Rate"), settings, "disk-read"));
+        diskGroup.add(this._createSwitchRow(_("Write Rate"), settings, "disk-write"));
+        diskGroup.add(this._createSwitchRow(_("Space Used"), settings, "disk-space-used"));
+        diskGroup.add(this._createSwitchRow(_("Space Free"), settings, "disk-space-free"));
+        diskGroup.add(this._createSwitchRow(_("Space %"), settings, "disk-space-percent"));
 
         /*
         --------------------
@@ -160,16 +161,16 @@ export default class RezMonPreferences extends ExtensionPreferences {
         */
 
         const netPage = new Adw.PreferencesPage({
-            title: 'Network',
+            title: _('Network'),
             icon_name: 'network-workgroup-symbolic'
         });
         window.add(netPage);
 
-        const netGroup = new Adw.PreferencesGroup({ title: "Network Settings" });
+        const netGroup = new Adw.PreferencesGroup({ title: _("Network Settings") });
         netPage.add(netGroup);
 
         const ifaces = ['auto'];
-        const labels = ['Auto (Default Route)'];
+        const labels = [_('Auto (Default Route)')];
         try {
             const lines = readFileLines('/proc/net/dev');
             for (let i = 2; i < lines.length; i++) {
@@ -188,11 +189,11 @@ export default class RezMonPreferences extends ExtensionPreferences {
         const savedIface = settings.get_string('net-interface');
         if (savedIface && !ifaces.includes(savedIface)) {
             ifaces.push(savedIface);
-            labels.push(`${savedIface} (Offline)`);
+            labels.push(`${savedIface} ` + _('(Offline)'));
         }
 
         netGroup.add(this._createComboRow(
-            "Monitored Interface",
+            _("Monitored Interface"),
             settings,
             labels,
             ifaces,
@@ -200,8 +201,8 @@ export default class RezMonPreferences extends ExtensionPreferences {
             () => settings.get_string("net-interface")
         ));
 
-        netGroup.add(this._createSwitchRow("Download", settings, "net-down"));
-        netGroup.add(this._createSwitchRow("Upload", settings, "net-up"));
+        netGroup.add(this._createSwitchRow(_("Download"), settings, "net-down"));
+        netGroup.add(this._createSwitchRow(_("Upload"), settings, "net-up"));
 
         /*
         --------------------
@@ -210,16 +211,16 @@ export default class RezMonPreferences extends ExtensionPreferences {
         */
 
         const appearancePage = new Adw.PreferencesPage({
-            title: 'Appearance',
+            title: _('Appearance'),
             icon_name: 'preferences-desktop-theme-symbolic'
         });
         window.add(appearancePage);
 
-        const appearanceGroup = new Adw.PreferencesGroup({ title: "Appearence Settings" });
+        const appearanceGroup = new Adw.PreferencesGroup({ title: _("Appearance Settings") });
         appearancePage.add(appearanceGroup);
 
         appearanceGroup.add(this._createComboRow(
-            "Brackets",
+            _("Brackets"),
             settings,
             ["( )", "[ ]", "{ }"],
             ["()", "[]", "{}"],
@@ -231,36 +232,36 @@ export default class RezMonPreferences extends ExtensionPreferences {
         ));
 
         appearanceGroup.add(this._createComboRow(
-            "Delimiter",
+            _("Delimiter"),
             settings,
-            ["|", "-", "~", "/", "\\", ":", ";", "+", "=", "space"],
+            ["|", "-", "~", "/", "\\", ":", ";", "+", "=", _("space")],
             ["|", "-", "~", "/", "\\", ":", ";", "+", "=", " "],
             (value) => settings.set_string("delimiter", value),
             () => settings.get_string("delimiter")
         ));
 
         appearanceGroup.add(this._createComboRow(
-            "Spacing",
+            _("Spacing"),
             settings,
-            ["Small", "Normal", "Wide"],
+            [_("Small"), _("Normal"), _("Wide")],
             ["small", "normal", "wide"],
             (value) => settings.set_string("spacing", value),
             () => settings.get_string("spacing")
         ));
 
         appearanceGroup.add(this._createComboRow(
-            "Temperature Unit",
+            _("Temperature Unit"),
             settings,
-            ["Celsius (°C)", "Fahrenheit (°F)"],
+            [_("Celsius (°C)"), _("Fahrenheit (°F)")],
             ["celsius", "fahrenheit"],
             (value) => settings.set_string("temp-unit", value),
             () => settings.get_string("temp-unit")
         ));
 
         appearanceGroup.add(this._createComboRow(
-            "Label Style",
+            _("Label Style"),
             settings,
-            ["Text (CPU, RAM, ...)", "Symbols (⚙, 🖥, ...)", "None (Compact)"],
+            [_("Text (CPU, RAM, ...)"), _("Symbols (⚙, 🖥, ...)"), _("None (Compact)")],
             ["text", "symbol", "none"],
             (value) => settings.set_string("label-style", value),
             () => settings.get_string("label-style")
@@ -273,16 +274,16 @@ export default class RezMonPreferences extends ExtensionPreferences {
         */
 
         const advancedPage = new Adw.PreferencesPage({
-            title: 'Misc',
+            title: _('Misc'),
             icon_name: 'applications-system-symbolic'
         });
         window.add(advancedPage);
 
-        const advancedGroup = new Adw.PreferencesGroup({ title: "Misc Settings" });
+        const advancedGroup = new Adw.PreferencesGroup({ title: _("Misc Settings") });
         advancedPage.add(advancedGroup);
 
         advancedGroup.add(this._createComboRow(
-            "Update Interval (sec)",
+            _("Update Interval (sec)"),
             settings,
             ["1", "2", "3", "4", "5"],
             [1, 2, 3, 4, 5],
@@ -290,65 +291,65 @@ export default class RezMonPreferences extends ExtensionPreferences {
             () => settings.get_int("update-interval")
         ));
 
-        advancedGroup.add(this._createSwitchRow("Show Hover Tooltip", settings, "show-tooltip"));
+        advancedGroup.add(this._createSwitchRow(_("Show Hover Tooltip"), settings, "show-tooltip"));
 
         const positionGroup = new Adw.PreferencesGroup({
-            title: "Panel & Clock Position",
-            description: "Customize positions on the top status bar"
+            title: _("Panel & Clock Position"),
+            description: _("Customize positions on the top status bar")
         });
         advancedPage.add(positionGroup);
 
         positionGroup.add(this._createComboRow(
-            "Panel Position",
+            _("Panel Position"),
             settings,
-            ["Right (Default)", "Center", "Left"],
+            [_("Right (Default)"), _("Center"), _("Left")],
             ["right", "center", "left"],
             (value) => settings.set_string("panel-position", value),
             () => settings.get_string("panel-position")
         ));
 
         positionGroup.add(this._createSpinRow(
-            "Panel Order Index / Priority",
+            _("Panel Order Index / Priority"),
             settings,
             "panel-priority",
             0, 30, 1
         ));
 
         positionGroup.add(this._createComboRow(
-            "Clock Position",
+            _("Clock Position"),
             settings,
-            ["Center (Default)", "Right", "Left"],
+            [_("Center (Default)"), _("Right"), _("Left")],
             ["center", "right", "left"],
             (value) => settings.set_string("clock-position", value),
             () => settings.get_string("clock-position")
         ));
 
-        const alertGroup = new Adw.PreferencesGroup({ title: "Alert Thresholds" });
+        const alertGroup = new Adw.PreferencesGroup({ title: _("Alert Thresholds") });
         advancedPage.add(alertGroup);
 
         alertGroup.add(this._createSpinRow(
-            "Usage Warning Threshold (%)",
+            _("Usage Warning Threshold (%)"),
             settings,
             "warn-threshold",
             1, 100, 1
         ));
 
         alertGroup.add(this._createSpinRow(
-            "Usage Critical Threshold (%)",
+            _("Usage Critical Threshold (%)"),
             settings,
             "crit-threshold",
             1, 100, 1
         ));
 
         alertGroup.add(this._createSpinRow(
-            "Temperature Warning Threshold (℃)",
+            _("Temperature Warning Threshold (℃)"),
             settings,
             "temp-warn-threshold",
             30, 120, 1
         ));
 
         alertGroup.add(this._createSpinRow(
-            "Temperature Critical Threshold (℃)",
+            _("Temperature Critical Threshold (℃)"),
             settings,
             "temp-crit-threshold",
             30, 120, 1
@@ -411,12 +412,12 @@ export default class RezMonPreferences extends ExtensionPreferences {
         this._orderRows = [];
 
         const metricLabels = {
-            cpu: "CPU",
-            gpu: "GPU",
-            ram: "RAM",
-            swap: "SWAP",
-            disk: "Disk",
-            net: "Network",
+            cpu: _("CPU"),
+            gpu: _("GPU"),
+            ram: _("RAM"),
+            swap: _("SWAP"),
+            disk: _("Disk"),
+            net: _("Network"),
         };
 
         const defaultOrder = ['cpu', 'gpu', 'ram', 'swap', 'disk', 'net'];
@@ -474,10 +475,10 @@ export default class RezMonPreferences extends ExtensionPreferences {
         });
 
         const resetRow = new Adw.ActionRow({
-            title: "Reset to Default Order",
+            title: _("Reset to Default Order"),
         });
         const resetBtn = new Gtk.Button({
-            label: "Reset",
+            label: _("Reset"),
             valign: Gtk.Align.CENTER,
         });
         resetBtn.connect('clicked', () => {

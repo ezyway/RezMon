@@ -12,7 +12,7 @@
  */
 
 import Clutter from 'gi://Clutter';
-import { Extension } from 'resource:///org/gnome/shell/extensions/extension.js';
+import { Extension, gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 import { panel, messageTray } from 'resource:///org/gnome/shell/ui/main.js';
 
 import { RezMonIndicator } from './indicator.js';
@@ -26,6 +26,7 @@ export default class RezMonExtension extends Extension {
     _originalClockIndex = 0;
 
     enable() {
+        this.initTranslations();
         this._settings = this.getSettings('org.gnome.shell.extensions.rezmon');
         this._indicator = new RezMonIndicator(this, this._settings);
 

@@ -1,0 +1,78 @@
+# RezMon Spanish Translation.
+# Copyright (C) 2026 AZZlOl
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: rezmon\n"
+"Report-Msgid-Bugs-To: https://github.com/ezyway/RezMon\n"
+"POT-Creation-Date: 2026-11-08 18:30+0530\n"
+"Language: es\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "General"
+msgstr "General"
+
+msgid "CPU"
+msgstr "CPU"
+
+msgid "GPU"
+msgstr "GPU"
+
+msgid "RAM"
+msgstr "RAM"
+
+msgid "SWAP"
+msgstr "SWAP"
+
+msgid "Disk"
+msgstr "Disco"
+
+msgid "Network"
+msgstr "Red"
+
+msgid "Appearance"
+msgstr "Apariencia"
+
+msgid "Misc"
+msgstr "Varios"
+
+msgid "Show CPU"
+msgstr "Mostrar CPU"
+
+msgid "Show GPU"
+msgstr "Mostrar GPU"
+
+msgid "Show RAM"
+msgstr "Mostrar RAM"
+
+msgid "Show SWAP"
+msgstr "Mostrar SWAP"
+
+msgid "Show DISK"
+msgstr "Mostrar Disco"
+
+msgid "Show NET"
+msgstr "Mostrar Red"
+
+msgid "Metric Display Order"
+msgstr "Orden de Métricas"
+
+msgid "Reorder how metrics appear on the top bar"
+msgstr "Reordenar las métricas en la barra superior"
+
+msgid "Reset to Default Order"
+msgstr "Restablecer Orden Predeterminado"
+
+msgid "Open Settings"
+msgstr "Abrir Configuración"
+
+msgid "System Monitor"
+msgstr "Monitor del Sistema"
+
+msgid "Show Hover Tooltip"
+msgstr "Mostrar Descripción Emergente"
+
+msgid "Temperature Unit"
+msgstr "Unidad de Temperatura"

@@ -1,0 +1,287 @@
+# RezMon GNOME Shell Extension.
+# Copyright (C) 2026 AZZlOl
+# This file is distributed under the same license as the RezMon package.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: rezmon\n"
+"Report-Msgid-Bugs-To: https://github.com/ezyway/RezMon\n"
+"POT-Creation-Date: 2026-11-08 18:30+0530\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "(Offline)"
+msgstr ""
+
+msgid "Alert Thresholds"
+msgstr ""
+
+msgid "Appearance"
+msgstr ""
+
+msgid "Appearance Settings"
+msgstr ""
+
+msgid "Auto (Dedicated when Active)"
+msgstr ""
+
+msgid "Auto (Default Route)"
+msgstr ""
+
+msgid "Brackets"
+msgstr ""
+
+msgid "CPU"
+msgstr ""
+
+msgid "CPU Settings"
+msgstr ""
+
+msgid "Celsius (°C)"
+msgstr ""
+
+msgid "Center"
+msgstr ""
+
+msgid "Center (Default)"
+msgstr ""
+
+msgid "Clock"
+msgstr ""
+
+msgid "Clock Position"
+msgstr ""
+
+msgid "Customize positions on the top status bar"
+msgstr ""
+
+msgid "Dedicated GPU"
+msgstr ""
+
+msgid "Delimiter"
+msgstr ""
+
+msgid "Disk"
+msgstr ""
+
+msgid "Disk Settings"
+msgstr ""
+
+msgid "Download"
+msgstr ""
+
+msgid "Fahrenheit (°F)"
+msgstr ""
+
+msgid "Free"
+msgstr ""
+
+msgid "GNOME System Monitor"
+msgstr ""
+
+msgid "GPU"
+msgstr ""
+
+msgid "GPU Device"
+msgstr ""
+
+msgid "GPU Settings"
+msgstr ""
+
+msgid "General"
+msgstr ""
+
+msgid "Integrated GPU"
+msgstr ""
+
+msgid "Label Style"
+msgstr ""
+
+msgid "Left"
+msgstr ""
+
+msgid "Loading..."
+msgstr ""
+
+msgid "Metric Display Order"
+msgstr ""
+
+msgid "Misc"
+msgstr ""
+
+msgid "Misc Settings"
+msgstr ""
+
+msgid "Mission Center"
+msgstr ""
+
+msgid "Monitored Interface"
+msgstr ""
+
+msgid "Network"
+msgstr ""
+
+msgid "Network Settings"
+msgstr ""
+
+msgid "None (Compact)"
+msgstr ""
+
+msgid "Normal"
+msgstr ""
+
+msgid "Open Settings"
+msgstr ""
+
+msgid "Panel & Clock Position"
+msgstr ""
+
+msgid "Panel Order Index / Priority"
+msgstr ""
+
+msgid "Panel Position"
+msgstr ""
+
+msgid "Percent"
+msgstr ""
+
+msgid "RAM"
+msgstr ""
+
+msgid "RAM Settings"
+msgstr ""
+
+msgid "Read Rate"
+msgstr ""
+
+msgid "Reorder how metrics appear on the top bar"
+msgstr ""
+
+msgid "Reset"
+msgstr ""
+
+msgid "Reset to Default Order"
+msgstr ""
+
+msgid "Resources Monitor"
+msgstr ""
+
+msgid "Right"
+msgstr ""
+
+msgid "Right (Default)"
+msgstr ""
+
+msgid "SWAP"
+msgstr ""
+
+msgid "SWAP Settings"
+msgstr ""
+
+msgid "Show CPU"
+msgstr ""
+
+msgid "Show DISK"
+msgstr ""
+
+msgid "Show GPU"
+msgstr ""
+
+msgid "Show Hover Tooltip"
+msgstr ""
+
+msgid "Show NET"
+msgstr ""
+
+msgid "Show RAM"
+msgstr ""
+
+msgid "Show SWAP"
+msgstr ""
+
+msgid "Small"
+msgstr ""
+
+msgid "Space %"
+msgstr ""
+
+msgid "Space Free"
+msgstr ""
+
+msgid "Space Used"
+msgstr ""
+
+msgid "Spacing"
+msgstr ""
+
+msgid "Symbols (⚙, 🖥, ...)"
+msgstr ""
+
+msgid "System Monitor"
+msgstr ""
+
+msgid "Temperature"
+msgstr ""
+
+msgid "Temperature Critical Threshold (℃)"
+msgstr ""
+
+msgid "Temperature Unit"
+msgstr ""
+
+msgid "Temperature Warning Threshold (℃)"
+msgstr ""
+
+msgid "Text (CPU, RAM, ...)"
+msgstr ""
+
+msgid "Toggle Components"
+msgstr ""
+
+msgid "Update Interval (sec)"
+msgstr ""
+
+msgid "Upload"
+msgstr ""
+
+msgid "Usage %"
+msgstr ""
+
+msgid "Usage Critical Threshold (%)"
+msgstr ""
+
+msgid "Usage Warning Threshold (%)"
+msgstr ""
+
+msgid "Used"
+msgstr ""
+
+msgid "VRAM Free"
+msgstr ""
+
+msgid "VRAM Percent"
+msgstr ""
+
+msgid "VRAM Used"
+msgstr ""
+
+msgid "Wide"
+msgstr ""
+
+msgid "Write Rate"
+msgstr ""
+
+msgid "btop (Terminal)"
+msgstr ""
+
+msgid "htop (Terminal)"
+msgstr ""
+
+msgid "space"
+msgstr ""
+

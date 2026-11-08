@@ -9,6 +9,7 @@ import GObject from 'gi://GObject';
 import { Button } from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import { PopupMenuItem, PopupBaseMenuItem, PopupSeparatorMenuItem } from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import { uiGroup } from 'resource:///org/gnome/shell/ui/main.js';
+import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 
 import { readFileLines } from './utils/file.js';
 import { updateCPU } from './metrics/cpu.js';
@@ -30,7 +31,7 @@ export class RezMonIndicator extends Button {
         this.box = new St.BoxLayout();
 
         this.label = new St.Label({
-            text: "Loading...",
+            text: _("Loading..."),
             y_align: Clutter.ActorAlign.CENTER,
             style: 'margin-right: 12px;',
         });
@@ -92,7 +93,7 @@ export class RezMonIndicator extends Button {
         }
 
         // 4. Open Settings
-        const settingsItem = new PopupMenuItem("Open Settings");
+        const settingsItem = new PopupMenuItem(_("Open Settings"));
         settingsItem.connect('activate', () => {
             this._extension.openPreferences();
         });
@@ -116,20 +117,20 @@ export class RezMonIndicator extends Button {
         // Graphical Monitors
         if (GLib.find_program_in_path('gnome-system-monitor')) {
             monitors.push({
-                name: 'GNOME System Monitor',
+                name: _('GNOME System Monitor'),
                 launch: () => this._launchApp('gnome-system-monitor'),
             });
         }
         if (GLib.find_program_in_path('resources')) {
             monitors.push({
-                name: 'Resources Monitor',
+                name: _('Resources Monitor'),
                 launch: () => this._launchApp('resources'),
             });
         }
         if (GLib.find_program_in_path('mission-center') || GLib.find_program_in_path('io.missioncenter.MissionCenter')) {
             const bin = GLib.find_program_in_path('mission-center') ? 'mission-center' : 'io.missioncenter.MissionCenter';
             monitors.push({
-                name: 'Mission Center',
+                name: _('Mission Center'),
                 launch: () => this._launchApp(bin),
             });
         }
@@ -137,13 +138,13 @@ export class RezMonIndicator extends Button {
         // Terminal Monitors
         if (GLib.find_program_in_path('btop')) {
             monitors.push({
-                name: 'btop (Terminal)',
+                name: _('btop (Terminal)'),
                 launch: () => this._launchTerminal('btop'),
             });
         }
         if (GLib.find_program_in_path('htop')) {
             monitors.push({
-                name: 'htop (Terminal)',
+                name: _('htop (Terminal)'),
                 launch: () => this._launchTerminal('htop'),
             });
         }
@@ -151,7 +152,7 @@ export class RezMonIndicator extends Button {
         // Fallback default
         if (monitors.length === 0) {
             monitors.push({
-                name: 'System Monitor',
+                name: _('System Monitor'),
                 launch: () => this._launchApp('gnome-system-monitor'),
             });
         }

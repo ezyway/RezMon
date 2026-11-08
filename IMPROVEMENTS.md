@@ -8,10 +8,9 @@
 
 1. [Network & Data Accuracy Enhancements](#1-network--data-accuracy-enhancements)
    - [1.1 Cumulative Session Traffic Counters](#11-cumulative-session-traffic-counters)
-2. [Internationalization, CI/CD & Code Quality](#2-internationalization-cicd--code-quality)
-   - [2.1 Gettext Internationalization (i18n / Localization)](#21-gettext-internationalization-i18n--localization)
-   - [2.2 Automated GitHub Actions CI & Packaging](#22-automated-github-actions-ci--packaging)
-   - [2.3 Developer Tooling & Makefile Targets](#23-developer-tooling--makefile-targets)
+2. [CI/CD & Developer Tooling](#2-cicd--developer-tooling)
+   - [2.1 Automated GitHub Actions CI & Packaging](#21-automated-github-actions-ci--packaging)
+   - [2.2 Developer Tooling & Makefile Targets](#22-developer-tooling--makefile-targets)
 3. [Prioritized Implementation Matrix](#3-prioritized-implementation-matrix)
 4. [Completed Features & Enhancements](#4-completed-features--enhancements)
 
@@ -29,18 +28,9 @@
 
 ---
 
-## 2. Internationalization, CI/CD & Code Quality
+## 2. CI/CD & Developer Tooling
 
-### 2.1 Gettext Internationalization (i18n / Localization)
-* **Target Files:** `po/`, `src/extension.js`, `src/prefs.js`, `src/indicator.js`
-* **Motivation:**
-  Currently, all UI labels ("Show CPU", "Usage %", "Temperature", "Open Settings", etc.) are hardcoded in English. GNOME Extensions review encourages `gettext` domains.
-* **Proposed Implementation:**
-  - Initialize `Gettext` using `Extension.initTranslations()`.
-  - Wrap UI strings with `_("...")`.
-  - Add template `po/rezmon.pot` and `Makefile` target `make pot` / `make mo`.
-
-### 2.2 Automated GitHub Actions CI & Packaging
+### 2.1 Automated GitHub Actions CI & Packaging
 * **Target Files:** `.github/workflows/ci.yml`, `.github/workflows/release.yml`
 * **Motivation:**
   Automates code linting, syntax verification, schema validation, and release zip generation on every PR and git tag.
@@ -50,7 +40,7 @@
   - Test module imports via `gjs -m`.
   - Build release zip and attach to GitHub Release assets.
 
-### 2.3 Developer Tooling & Makefile Targets
+### 2.2 Developer Tooling & Makefile Targets
 * **Target Files:** `Makefile`
 * **Additions:**
   - `make test`: Executes test suite under `gjs`.
@@ -87,6 +77,7 @@
 - **Dynamic System Monitor Launchers (4.3)**: Automatic runtime discovery and launching of graphical monitors (Resources, GNOME System Monitor, Mission Center) and CLI tools (btop, htop) via terminal emulator.
 - **Network Interface Selection (5.1)**: User selection of monitored network interfaces (Auto/Default Route, Wi-Fi, Ethernet, VPN tunnels) with live sysfs discovery and offline fallback.
 - **Independent Network Scaling & Fractional Decimals (5.2)**: Independent unit scaling for upload and download rates with 1-decimal fractional precision for small values below 10.
+- **Gettext Internationalization (6.1)**: Full gettext i18n support across extension, prefs, and menu with domain setup in metadata.json and template `po/rezmon.pot`.
 
 ---
 
