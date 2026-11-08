@@ -786,29 +786,44 @@ export class RezMonIndicator extends Button {
 
         if (!net) return "";
 
-        let tx = (net && Number.isFinite(net.up)) ? Math.max(0, net.up) : 0;
-        let rx = (net && Number.isFinite(net.down)) ? Math.max(0, net.down) : 0;
+        const rx = (net && Number.isFinite(net.down)) ? Math.max(0, net.down) : 0;
+        const tx = (net && Number.isFinite(net.up)) ? Math.max(0, net.up) : 0;
 
-        const units = ['B/s', 'KB/s', 'MB/s', 'GB/s'];
-        let u = 0;
+        const formatRate = (bytes) => {
+            if (!Number.isFinite(bytes) || bytes <= 0) {
+                return { valStr: '00', unit: 'B/s' };
+            }
+            const units = ['B/s', 'KB/s', 'MB/s', 'GB/s'];
+            let u = 0;
+            let val = bytes;
+            while (val > 999 && u < units.length - 1) {
+                val /= 1024;
+                u++;
+            }
+            let valStr;
+            if (val < 10 && u > 0)
+                valStr = val.toFixed(1);
+            else
+                valStr = val.toFixed(0).padStart(2, '0');
+            return { valStr, unit: units[u] };
+        };
 
-        while (((this.netUp && tx > 999) || (this.netDown && rx > 999)) && u < units.length - 1) {
-            tx /= 1024;
-            rx /= 1024;
-            u++;
+        const down = formatRate(rx);
+        const up = formatRate(tx);
+
+        if (this.netDown && this.netUp) {
+            if (down.unit === up.unit) {
+                return `${this._getPrefix('net')}${this.b_open}↓ ${down.valStr} ${this.delimiter} ↑ ${up.valStr}${this.b_close}${down.unit}`;
+            } else {
+                return `${this._getPrefix('net')}${this.b_open}↓ ${down.valStr} ${down.unit} ${this.delimiter} ↑ ${up.valStr} ${up.unit}${this.b_close}`;
+            }
+        } else if (this.netDown) {
+            return `${this._getPrefix('net')}${this.b_open}↓ ${down.valStr}${this.b_close}${down.unit}`;
+        } else if (this.netUp) {
+            return `${this._getPrefix('net')}${this.b_open}↑ ${up.valStr}${this.b_close}${up.unit}`;
         }
 
-        const values = [];
-
-        if (this.netDown)
-            values.push(`↓ ${rx.toFixed(0).padStart(2, '0')}`);
-
-        if (this.netUp)
-            values.push(`↑ ${tx.toFixed(0).padStart(2, '0')}`);
-
-        if (values.length === 0) return "";
-
-        return `${this._getPrefix('net')}${this.b_open}${values.join(` ${this.delimiter} `)}${this.b_close}${units[u]}`;
+        return "";
     }
 
     stop() {
