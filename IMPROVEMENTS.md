@@ -77,18 +77,9 @@ The core stability and performance overhaul has been completed and merged into `
 * **Target Files:** `src/indicator.js`, `src/prefs.js`, `src/schemas/...gschema.xml`
 * **Status:** Implemented `metric-order` schema key (`['cpu', 'gpu', 'ram', 'swap', 'disk', 'net']`), modular metric dispatch in `_updateMetrics()`, and an interactive reordering UI in General preferences with move up / move down buttons and reset to default.
 
-### 3.5 Rich Hover Tooltip
-* **Target Files:** `src/indicator.js`
-* **Motivation:**
-  Top bar space only shows abbreviated metrics. Hovering with the mouse cursor should reveal detailed context without opening menus.
-* **Proposed Implementation:**
-  - Attach a tooltip to `this` or `this.box` using `Clutter.Actor` hover signals or St.Tooltip:
-    ```
-    Model: AMD Ryzen 7 7840HS (16 Cores) @ 3.80 GHz
-    CPU Load: 14% | Package Temp: 48°C
-    Memory: 18.2 GB / 31.2 GB (58% Used)
-    Network: wlp1s0 (192.168.1.105) | Gateway: 192.168.1.1
-    ```
+### 3.5 Rich Hover Tooltip (Completed)
+* **Target Files:** `src/indicator.js`, `src/prefs.js`, `src/schemas/...gschema.xml`
+* **Status:** Implemented rich multiline hover tooltip showing CPU model/cores/load/clock/temp, GPU model/status/temp/VRAM, RAM used/total/free, SWAP status, Root filesystem used/free/total, Disk read/write rates, and Network interface with live download/upload rates. Includes `show-tooltip` toggle in settings and non-blocking click-through overlay.
 
 ---
 

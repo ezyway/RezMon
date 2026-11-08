@@ -8,7 +8,9 @@ import GObject from 'gi://GObject';
 
 import { Button } from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import { PopupMenuItem } from 'resource:///org/gnome/shell/ui/popupMenu.js';
+import { uiGroup } from 'resource:///org/gnome/shell/ui/main.js';
 
+import { readFileLines } from './utils/file.js';
 import { updateCPU } from './metrics/cpu.js';
 import { updateGPU } from './metrics/gpu.js';
 import { updateRAM } from './metrics/ram.js';
@@ -40,6 +42,7 @@ export class RezMonIndicator extends Button {
         this._initValues();
         this._bindSettings();
         this._buildMenu();
+        this._initTooltip();
 
         this._updateMetrics();
     }
@@ -179,6 +182,9 @@ export class RezMonIndicator extends Button {
         this.tempCritThreshold = this._settings.get_int('temp-crit-threshold') || 85;
 
         this.interval = this._settings.get_int("update-interval") || 1;
+        this.showTooltip = this._settings.get_boolean('show-tooltip');
+        if (!this.showTooltip)
+            this._hideTooltip();
 
         this._restartLoop();
     }
@@ -202,35 +208,44 @@ export class RezMonIndicator extends Button {
 
         const parts = [];
 
+        if (!this._lastMetrics)
+            this._lastMetrics = {};
+
         const metricUpdaters = {
             cpu: () => {
                 if (!this.showCPU) return null;
                 const cpu = updateCPU(this);
+                this._lastMetrics.cpu = cpu;
                 return this._formatCPU(cpu);
             },
             gpu: () => {
                 if (!this.showGPU) return null;
                 const gpu = updateGPU(this);
+                this._lastMetrics.gpu = gpu;
                 return this._formatGPU(gpu);
             },
             ram: () => {
                 if (!this.showRAM) return null;
                 const ram = updateRAM(this);
+                this._lastMetrics.ram = ram;
                 return this._formatRAM(ram);
             },
             swap: () => {
                 if (!this.showSWAP) return null;
                 const swap = updateSWAP(this);
+                this._lastMetrics.swap = swap;
                 return this._formatSWAP(swap);
             },
             disk: () => {
                 if (!this.showDisk) return null;
                 const disk = updateDisk(this);
+                this._lastMetrics.disk = disk;
                 return this._formatDisk(disk);
             },
             net: () => {
                 if (!this.showNET) return null;
                 const net = updateNET(this);
+                this._lastMetrics.net = net;
                 return this._formatNET(net);
             },
         };
@@ -249,6 +264,12 @@ export class RezMonIndicator extends Button {
             this.label.clutter_text.set_markup(parts.join(this.spacing));
         else
             this.label.clutter_text.set_markup("RezMon");
+
+        if (this._tooltipActor && this._tooltipActor.visible) {
+            const markup = this._generateTooltipMarkup();
+            if (markup)
+                this._tooltipActor.clutter_text.set_markup(markup);
+        }
     }
 
     /*
@@ -582,8 +603,240 @@ export class RezMonIndicator extends Button {
         }
     }
 
+    _initTooltip() {
+        this._tooltipActor = null;
+        this._tooltipTimer = 0;
+        this._lastMetrics = {};
+
+        this.connect('notify::hover', () => {
+            if (this.hover && this.showTooltip && !(this.menu && this.menu.isOpen)) {
+                if (this._tooltipTimer)
+                    GLib.source_remove(this._tooltipTimer);
+                this._tooltipTimer = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 350, () => {
+                    this._showTooltip();
+                    this._tooltipTimer = 0;
+                    return GLib.SOURCE_REMOVE;
+                });
+            } else {
+                this._hideTooltip();
+            }
+        });
+
+        this.menu.connectObject('open-state-changed', (menu, isOpen) => {
+            if (isOpen)
+                this._hideTooltip();
+        }, this);
+    }
+
+    _showTooltip() {
+        if (!this.showTooltip || (this.menu && this.menu.isOpen))
+            return;
+
+        if (!this._tooltipActor) {
+            this._tooltipActor = new St.Label({
+                style_class: 'rezmon-tooltip',
+                style: 'background-color: rgba(28, 28, 32, 0.96); ' +
+                       'color: #ffffff; ' +
+                       'border: 1px solid rgba(255, 255, 255, 0.15); ' +
+                       'border-radius: 10px; ' +
+                       'padding: 12px 16px; ' +
+                       'font-size: 10.5pt; ' +
+                       'box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);',
+                reactive: false,
+            });
+            this._tooltipActor.clutter_text.set_use_markup(true);
+            uiGroup.add_child(this._tooltipActor);
+        }
+
+        const markup = this._generateTooltipMarkup();
+        if (!markup)
+            return;
+
+        this._tooltipActor.clutter_text.set_markup(markup);
+        this._tooltipActor.opacity = 0;
+        this._tooltipActor.show();
+
+        const extents = this.get_transformed_extents();
+        const [, width] = this._tooltipActor.get_preferred_width(-1);
+
+        const centerX = extents.get_x() + (extents.get_width() / 2);
+        const stageWidth = global.stage.width;
+        const x = Math.max(12, Math.min(Math.floor(centerX - (width / 2)), stageWidth - width - 12));
+        const y = extents.get_y() + extents.get_height() + 8;
+
+        this._tooltipActor.set_position(x, y);
+
+        this._tooltipActor.remove_all_transitions();
+        this._tooltipActor.ease({
+            opacity: 255,
+            duration: 150,
+            mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+        });
+    }
+
+    _hideTooltip() {
+        if (this._tooltipTimer) {
+            GLib.source_remove(this._tooltipTimer);
+            this._tooltipTimer = 0;
+        }
+
+        if (this._tooltipActor && this._tooltipActor.visible) {
+            this._tooltipActor.remove_all_transitions();
+            this._tooltipActor.ease({
+                opacity: 0,
+                duration: 120,
+                mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+                onComplete: () => {
+                    if (this._tooltipActor)
+                        this._tooltipActor.hide();
+                },
+            });
+        }
+    }
+
+    _generateTooltipMarkup() {
+        const sections = [];
+
+        // CPU
+        const cpu = this._lastMetrics?.cpu || updateCPU(this);
+        const cpuInfo = this._getCpuHardwareInfo();
+        let cpuText = `<b>CPU</b>  <span alpha="70%">${GLib.markup_escape_text(cpuInfo.model, -1)} (${cpuInfo.cores} Cores)</span>\n`;
+        const cpuParts = [];
+        if (cpu && Number.isFinite(cpu.usage))
+            cpuParts.push(`Usage: <b>${Math.round(cpu.usage)}%</b>`);
+        if (cpu && Number.isFinite(cpu.clock))
+            cpuParts.push(`Clock: <b>${cpu.clock.toFixed(2)} GHz</b>`);
+        if (cpu && Number.isFinite(cpu.temp))
+            cpuParts.push(`Temp: <b>${this._formatTemperature(cpu.temp)}</b>`);
+        cpuText += `  ${cpuParts.length > 0 ? cpuParts.join('  │  ') : '<span alpha="60%">No data</span>'}`;
+        sections.push(cpuText);
+
+        // GPU
+        const gpu = this._lastMetrics?.gpu || updateGPU(this);
+        if (gpu) {
+            const gpuTitle = gpu.name ? GLib.markup_escape_text(gpu.name, -1) : 'GPU';
+            let gpuText = `<b>GPU</b>  <span alpha="70%">${gpuTitle}</span>\n`;
+            if (gpu.sleeping) {
+                gpuText += `  <span alpha="60%">(Power Saving / D3cold Sleep)</span>`;
+            } else {
+                const gpuParts = [];
+                if (Number.isFinite(gpu.usage))
+                    gpuParts.push(`Usage: <b>${Math.round(gpu.usage)}%</b>`);
+                if (Number.isFinite(gpu.clock))
+                    gpuParts.push(`Clock: <b>${gpu.clock} MHz</b>`);
+                if (Number.isFinite(gpu.temp))
+                    gpuParts.push(`Temp: <b>${this._formatTemperature(gpu.temp)}</b>`);
+                if (Number.isFinite(gpu.vramUsed)) {
+                    const totalV = Number.isFinite(gpu.vramFree) ? (gpu.vramUsed + gpu.vramFree).toFixed(1) : null;
+                    const pct = Number.isFinite(gpu.vramPercent) ? Math.round(gpu.vramPercent) : null;
+                    if (totalV && pct !== null)
+                        gpuParts.push(`VRAM: <b>${gpu.vramUsed.toFixed(1)}G/${totalV}G (${pct}%)</b>`);
+                    else
+                        gpuParts.push(`VRAM: <b>${gpu.vramUsed.toFixed(1)} GB</b>`);
+                }
+                gpuText += `  ${gpuParts.length > 0 ? gpuParts.join('  │  ') : '<span alpha="60%">Active</span>'}`;
+            }
+            sections.push(gpuText);
+        }
+
+        // Memory (RAM & SWAP)
+        const ram = this._lastMetrics?.ram || updateRAM(this);
+        const swap = this._lastMetrics?.swap || updateSWAP(this);
+        let memText = `<b>Memory</b>\n`;
+        if (ram) {
+            const totalR = ((ram.used || 0) + (ram.free || 0)).toFixed(1);
+            memText += `  RAM: <b>${(ram.used || 0).toFixed(1)}G</b> / ${totalR}G (<b>${Math.round(ram.percent || 0)}%</b>)  │  Free: <b>${(ram.free || 0).toFixed(1)}G</b>\n`;
+        }
+        if (swap && swap.hasSwap) {
+            const totalS = ((swap.used || 0) + (swap.free || 0)).toFixed(1);
+            memText += `  SWAP: <b>${(swap.used || 0).toFixed(1)}G</b> / ${totalS}G (<b>${Math.round(swap.percent || 0)}%</b>)  │  Free: <b>${(swap.free || 0).toFixed(1)}G</b>`;
+        } else if (swap && !swap.hasSwap) {
+            memText += `  SWAP: <span alpha="60%">No swap configured</span>`;
+        }
+        sections.push(memText);
+
+        // Storage / Disk
+        const disk = this._lastMetrics?.disk || updateDisk(this);
+        if (disk) {
+            const totalD = this._formatDiskCapacity((disk.spaceUsed || 0) + (disk.spaceFree || 0));
+            const usedD = this._formatDiskCapacity(disk.spaceUsed || 0);
+            const freeD = this._formatDiskCapacity(disk.spaceFree || 0);
+            let diskText = `<b>Disk & Storage</b>  <span alpha="70%">(Root /)</span>\n`;
+            diskText += `  Space: <b>${usedD}</b> / ${totalD} (<b>${Math.round(disk.spacePercent || 0)}%</b>)  │  Free: <b>${freeD}</b>\n`;
+            const rRate = this._formatDataRate(disk.read || 0);
+            const wRate = this._formatDataRate(disk.write || 0);
+            diskText += `  I/O: Read: <b>${rRate}</b>  │  Write: <b>${wRate}</b>`;
+            sections.push(diskText);
+        }
+
+        // Network
+        const net = this._lastMetrics?.net || updateNET(this);
+        if (net) {
+            const iface = this.prev_iface || 'Active';
+            let netText = `<b>Network</b>  <span alpha="70%">(${GLib.markup_escape_text(iface, -1)})</span>\n`;
+            const down = this._formatDataRate(net.down || 0);
+            const up = this._formatDataRate(net.up || 0);
+            netText += `  Speed: ↓ <b>${down}</b>  │  ↑ <b>${up}</b>`;
+            sections.push(netText);
+        }
+
+        return sections.join('\n\n');
+    }
+
+    _formatDataRate(bytes) {
+        if (!Number.isFinite(bytes) || bytes <= 0) return '0 B/s';
+        const units = ['B/s', 'KB/s', 'MB/s', 'GB/s'];
+        let u = 0;
+        let val = bytes;
+        while (val >= 1024 && u < units.length - 1) {
+            val /= 1024;
+            u++;
+        }
+        return `${val < 10 && u > 0 ? val.toFixed(1) : Math.round(val)} ${units[u]}`;
+    }
+
+    _formatDiskCapacity(gb) {
+        if (!Number.isFinite(gb)) return '0 GB';
+        if (gb >= 1000)
+            return `${(gb / 1024).toFixed(1)} TB`;
+        return `${gb.toFixed(1)} GB`;
+    }
+
+    _getCpuHardwareInfo() {
+        if (this._cpuHwInfo)
+            return this._cpuHwInfo;
+
+        let model = 'CPU';
+        let cores = 0;
+        try {
+            const lines = readFileLines('/proc/cpuinfo');
+            for (const line of lines) {
+                if (line.startsWith('model name')) {
+                    if (model === 'CPU') {
+                        const parts = line.split(':');
+                        if (parts[1])
+                            model = parts[1].trim().replace(/\s+/g, ' ');
+                    }
+                } else if (line.startsWith('processor')) {
+                    cores++;
+                }
+            }
+        } catch (_) {}
+
+        this._cpuHwInfo = { model, cores: cores || 1 };
+        return this._cpuHwInfo;
+    }
+
     destroy() {
         this.stop();
+        this._hideTooltip();
+
+        if (this._tooltipActor) {
+            if (this._tooltipActor.get_parent())
+                this._tooltipActor.get_parent().remove_child(this._tooltipActor);
+            this._tooltipActor.destroy();
+            this._tooltipActor = null;
+        }
 
         if (this._settingsChangedId) {
             this._settings.disconnect(this._settingsChangedId);

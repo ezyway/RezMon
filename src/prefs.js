@@ -257,6 +257,8 @@ export default class RezMonPreferences extends ExtensionPreferences {
             () => settings.get_int("update-interval")
         ));
 
+        advancedGroup.add(this._createSwitchRow("Show Hover Tooltip", settings, "show-tooltip"));
+
         const positionGroup = new Adw.PreferencesGroup({
             title: "Panel & Clock Position",
             description: "Customize positions on the top status bar"
