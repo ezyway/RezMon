@@ -73,13 +73,9 @@ The core stability and performance overhaul has been completed and merged into `
 * **Target Files:** `src/extension.js`, `src/prefs.js`, `src/schemas/...gschema.xml`
 * **Status:** Implemented `panel-position` (`'right'`, `'center'`, `'left'`), `panel-priority` (order index 0-30), and `clock-position` (`'center'`, `'right'`, `'left'`) with dynamic repositioning and safe restoration on extension disable.
 
-### 3.4 Customizable Metric Ordering
-* **Target Files:** `src/indicator.js`, `src/prefs.js`
-* **Motivation:**
-  Users have different priorities (e.g. network engineers want `NET` first; developers want `RAM` first).
-* **Proposed Implementation:**
-  - Add string array key `metric-order` in schema: `['cpu', 'ram', 'net']`.
-  - Iterate through `this.metricOrder` dynamically in `_updateMetrics()`.
+### 3.4 Customizable Metric Ordering (Completed)
+* **Target Files:** `src/indicator.js`, `src/prefs.js`, `src/schemas/...gschema.xml`
+* **Status:** Implemented `metric-order` schema key (`['cpu', 'gpu', 'ram', 'swap', 'disk', 'net']`), modular metric dispatch in `_updateMetrics()`, and an interactive reordering UI in General preferences with move up / move down buttons and reset to default.
 
 ### 3.5 Rich Hover Tooltip
 * **Target Files:** `src/indicator.js`

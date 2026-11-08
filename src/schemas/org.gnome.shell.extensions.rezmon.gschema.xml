@@ -18,6 +18,7 @@
     <key name="spacing" type="s"><default>"normal"</default></key>
     <key name="temp-unit" type="s"><default>"celsius"</default></key>
     <key name="label-style" type="s"><default>"text"</default></key>
+    <key name="metric-order" type="as"><default>['cpu', 'gpu', 'ram', 'swap', 'disk', 'net']</default></key>
     <key name="panel-position" type="s"><default>"right"</default></key>
     <key name="panel-priority" type="i"><default>0</default></key>
     <key name="clock-position" type="s"><default>"center"</default></key>

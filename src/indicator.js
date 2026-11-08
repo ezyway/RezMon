@@ -162,6 +162,15 @@ export class RezMonIndicator extends Button {
         this.tempUnit = this._settings.get_string("temp-unit") || "celsius";
         this.labelStyle = this._settings.get_string("label-style") || "text";
 
+        // metric ordering
+        const savedOrder = this._settings.get_strv('metric-order');
+        const defaultOrder = ['cpu', 'gpu', 'ram', 'swap', 'disk', 'net'];
+        this.metricOrder = (savedOrder && savedOrder.length > 0) ? [...savedOrder] : [...defaultOrder];
+        for (const m of defaultOrder) {
+            if (!this.metricOrder.includes(m))
+                this.metricOrder.push(m);
+        }
+
         // thresholds
         this.warnThreshold = this._settings.get_int('warn-threshold') || 70;
         this.critThreshold = this._settings.get_int('crit-threshold') || 90;
@@ -193,40 +202,47 @@ export class RezMonIndicator extends Button {
 
         const parts = [];
 
-        if (this.showCPU) {
-            const cpu = updateCPU(this);
-            const formatted = this._formatCPU(cpu);
-            if (formatted) parts.push(formatted);
-        }
+        const metricUpdaters = {
+            cpu: () => {
+                if (!this.showCPU) return null;
+                const cpu = updateCPU(this);
+                return this._formatCPU(cpu);
+            },
+            gpu: () => {
+                if (!this.showGPU) return null;
+                const gpu = updateGPU(this);
+                return this._formatGPU(gpu);
+            },
+            ram: () => {
+                if (!this.showRAM) return null;
+                const ram = updateRAM(this);
+                return this._formatRAM(ram);
+            },
+            swap: () => {
+                if (!this.showSWAP) return null;
+                const swap = updateSWAP(this);
+                return this._formatSWAP(swap);
+            },
+            disk: () => {
+                if (!this.showDisk) return null;
+                const disk = updateDisk(this);
+                return this._formatDisk(disk);
+            },
+            net: () => {
+                if (!this.showNET) return null;
+                const net = updateNET(this);
+                return this._formatNET(net);
+            },
+        };
 
-        if (this.showGPU) {
-            const gpu = updateGPU(this);
-            const formatted = this._formatGPU(gpu);
-            if (formatted) parts.push(formatted);
-        }
-
-        if (this.showRAM) {
-            const ram = updateRAM(this);
-            const formatted = this._formatRAM(ram);
-            if (formatted) parts.push(formatted);
-        }
-
-        if (this.showSWAP) {
-            const swap = updateSWAP(this);
-            const formatted = this._formatSWAP(swap);
-            if (formatted) parts.push(formatted);
-        }
-
-        if (this.showDisk) {
-            const disk = updateDisk(this);
-            const formatted = this._formatDisk(disk);
-            if (formatted) parts.push(formatted);
-        }
-
-        if (this.showNET) {
-            const net = updateNET(this);
-            const formatted = this._formatNET(net);
-            if (formatted) parts.push(formatted);
+        const currentOrder = this.metricOrder || ['cpu', 'gpu', 'ram', 'swap', 'disk', 'net'];
+        for (const metric of currentOrder) {
+            const updater = metricUpdaters[metric];
+            if (updater) {
+                const formatted = updater();
+                if (formatted)
+                    parts.push(formatted);
+            }
         }
 
         if (parts.length > 0)

@@ -34,6 +34,15 @@ export default class RezMonPreferences extends ExtensionPreferences {
         generalGroup.add(this._createSwitchRow("Show DISK", settings, "show-disk"));
         generalGroup.add(this._createSwitchRow("Show NET", settings, "show-net"));
 
+        const orderGroup = new Adw.PreferencesGroup({
+            title: "Metric Display Order",
+            description: "Reorder how metrics appear on the top bar"
+        });
+        generalPage.add(orderGroup);
+
+        this._orderRows = [];
+        this._buildOrderRows(orderGroup, settings);
+
         /*
         --------------------
         CPU PAGE
@@ -356,5 +365,92 @@ export default class RezMonPreferences extends ExtensionPreferences {
         });
 
         return row;
+    }
+
+    _buildOrderRows(orderGroup, settings) {
+        if (this._orderRows) {
+            for (const row of this._orderRows) {
+                orderGroup.remove(row);
+            }
+        }
+        this._orderRows = [];
+
+        const metricLabels = {
+            cpu: "CPU",
+            gpu: "GPU",
+            ram: "RAM",
+            swap: "SWAP",
+            disk: "Disk",
+            net: "Network",
+        };
+
+        const defaultOrder = ['cpu', 'gpu', 'ram', 'swap', 'disk', 'net'];
+        let currentOrder = settings.get_strv('metric-order');
+        if (!currentOrder || currentOrder.length === 0)
+            currentOrder = [...defaultOrder];
+
+        for (const m of defaultOrder) {
+            if (!currentOrder.includes(m))
+                currentOrder.push(m);
+        }
+
+        currentOrder.forEach((metricKey, idx) => {
+            const label = metricLabels[metricKey] || metricKey.toUpperCase();
+            const row = new Adw.ActionRow({
+                title: `${idx + 1}.  ${label}`,
+            });
+
+            const upButton = new Gtk.Button({
+                icon_name: 'go-up-symbolic',
+                valign: Gtk.Align.CENTER,
+                css_classes: ['flat'],
+                sensitive: idx > 0,
+            });
+
+            upButton.connect('clicked', () => {
+                const order = [...currentOrder];
+                const tmp = order[idx];
+                order[idx] = order[idx - 1];
+                order[idx - 1] = tmp;
+                settings.set_strv('metric-order', order);
+                this._buildOrderRows(orderGroup, settings);
+            });
+
+            const downButton = new Gtk.Button({
+                icon_name: 'go-down-symbolic',
+                valign: Gtk.Align.CENTER,
+                css_classes: ['flat'],
+                sensitive: idx < currentOrder.length - 1,
+            });
+
+            downButton.connect('clicked', () => {
+                const order = [...currentOrder];
+                const tmp = order[idx];
+                order[idx] = order[idx + 1];
+                order[idx + 1] = tmp;
+                settings.set_strv('metric-order', order);
+                this._buildOrderRows(orderGroup, settings);
+            });
+
+            row.add_suffix(upButton);
+            row.add_suffix(downButton);
+            orderGroup.add(row);
+            this._orderRows.push(row);
+        });
+
+        const resetRow = new Adw.ActionRow({
+            title: "Reset to Default Order",
+        });
+        const resetBtn = new Gtk.Button({
+            label: "Reset",
+            valign: Gtk.Align.CENTER,
+        });
+        resetBtn.connect('clicked', () => {
+            settings.set_strv('metric-order', defaultOrder);
+            this._buildOrderRows(orderGroup, settings);
+        });
+        resetRow.add_suffix(resetBtn);
+        orderGroup.add(resetRow);
+        this._orderRows.push(resetRow);
     }
 }
