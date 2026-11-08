@@ -89,3 +89,4 @@ Clicking the indicator opens the live **System Status Overview** popup:
 - **System Monitor Launchers**: Automatically detects installed monitors and creates one-click launchers:
   - **GUI Monitors**: *GNOME System Monitor*, *Resources*, *Mission Center*.
   - **CLI Monitors**: *btop*, *htop*. Terminal monitors launch automatically in your installed terminal (*kitty*, *alacritty*, *ptyxis*, *wezterm*, *foot*, *gnome-terminal*, *xterm*).
+

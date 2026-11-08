@@ -74,3 +74,4 @@ RezMon collects CPU statistics with minimal kernel context switching:
 - **Default Route Priority**: Parses `/proc/net/route` and evaluates route metric flags to identify the system's primary default gateway interface (prioritizing active Wi-Fi or Ethernet over secondary virtual bridges).
 - **Interface Selection**: Users can bind monitoring to a specific network interface (e.g., `wlp0s20f3`, `enp7s0`, or VPN tunnels such as `tun0`, `wg0`).
 - **Throughput Rates**: Computes RX/TX byte deltas from `/proc/net/dev`. Independent scaling formats download and upload speeds with 1-decimal fractional precision for low speeds below 10 (e.g. `1.5 MB/s`).
+

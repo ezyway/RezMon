@@ -120,3 +120,4 @@ python3 -m json.tool src/metadata.json > /dev/null
 make zip
 unzip -l rezmon@azz.lol.zip | grep gschemas.compiled || echo "Clean: Ready for EGO"
 ```
+
