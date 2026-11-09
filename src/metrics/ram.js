@@ -27,11 +27,13 @@ export async function updateRAM(state) {
         }
 
         const used = Math.max(0, total - available);
+        const usedPercent = (used / total) * 100;
 
         return {
             used: used / (1024 * 1024),
             free: available / (1024 * 1024),
-            percent: (used / total) * 100
+            percent: usedPercent,
+            freePercent: 100 - usedPercent
         };
 
     } catch (e) {

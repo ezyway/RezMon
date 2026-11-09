@@ -10,19 +10,20 @@ RezMon supports discrete and integrated GPUs across **NVIDIA**, **AMD Radeon**, 
 
 ### GPU Device Selection Modes
 In the extension preferences under the **GPU** page, you can choose how GPUs are tracked:
-- **Auto (Dedicated when Active)** *(Default)*: Prioritizes discrete graphics (NVIDIA or AMD dGPU) when actively processing workloads, but seamlessly falls back to integrated graphics (Intel Iris/Xe or AMD APU) when the discrete GPU enters power-saving sleep.
+- **Auto (Prefer Dedicated)** *(Default)*: Tracks the discrete graphics (NVIDIA or AMD dGPU) when present. If the discrete GPU enters power-saving sleep, RezMon reports `(Sleep)` instead of silently switching to the integrated GPU. Select **Integrated GPU** explicitly to monitor the iGPU.
 - **Dedicated GPU**: Exclusively monitors discrete graphics.
 - **Integrated GPU**: Exclusively monitors integrated graphics.
 
 ### NVIDIA Graphics
 - **Asynchronous Telemetry**: RezMon queries `nvidia-smi` asynchronously via `Gio.Subprocess`, eliminating main-thread blocking and frame drops in Wayland desktop animations.
 - **D3cold Power Preservation**: On hybrid laptops (NVIDIA Optimus), executing commands against a sleeping discrete GPU would spin up the dGPU, draining battery. RezMon checks the PCI device power state at `/sys/bus/pci/drivers/nvidia/*/power/runtime_status`:
-  - When the status is `suspended`, RezMon displays `(D3cold Sleep)` without spawning `nvidia-smi`.
+  - When the status is `suspended`, RezMon displays `(Sleep)` without spawning `nvidia-smi` and hides all other GPU metrics.
   - Only when the GPU wakes up to handle graphics workloads does active polling resume.
 - **Tracked NVIDIA Metrics**: Core usage %, core clock (MHz/GHz), package temperature (℃/℉), and VRAM (Used, Free, %).
 
 ### AMD Radeon Graphics
 - **DRM Sysfs Telemetry**: Reads GPU engine load directly from `/sys/class/drm/card*/device/gpu_busy_percent`.
+- **Power-State Awareness**: Checks `power/runtime_status` before reading telemetry, so a suspended AMD dGPU reports `(Sleep)` instead of being woken up.
 - **Clock & Thermal**: Reads graphics clock frequency from `current_gfxclk` and temperature sensors via `/sys/class/drm/card*/device/hwmon/`.
 - **VRAM Tracking**:
   - Discrete AMD cards: Reads dedicated video memory from `mem_info_vram_used` and `mem_info_vram_total`.
@@ -57,7 +58,8 @@ RezMon collects CPU statistics with minimal kernel context switching:
 
 - **RAM**: Parsed via `/proc/meminfo` in a single pass with early exit once `MemTotal` and `MemAvailable` are found. Used memory is accurately computed as:
   $$\text{Used RAM} = \text{MemTotal} - \text{MemAvailable}$$
-- **SWAP**: Reads `SwapTotal` and `SwapFree`. If swap is disabled or no swapfile exists, SWAP metrics are cleanly hidden from both the status bar and the dropdown dashboard.
+  Both used % and free % can be enabled independently from preferences.
+- **SWAP**: Reads `SwapTotal` and `SwapFree`. If swap is disabled or no swapfile exists, SWAP metrics are cleanly hidden from both the status bar and the dropdown dashboard. Both used % and free % can be enabled independently.
 
 ---
 

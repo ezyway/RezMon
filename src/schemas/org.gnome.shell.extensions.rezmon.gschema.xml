@@ -42,11 +42,13 @@
     <key name="ram-used" type="b"><default>true</default></key>
     <key name="ram-free" type="b"><default>true</default></key>
     <key name="ram-percent" type="b"><default>false</default></key>
+    <key name="ram-free-percent" type="b"><default>false</default></key>
 
     <!-- NEW: SWAP -->
     <key name="swap-used" type="b"><default>true</default></key>
     <key name="swap-free" type="b"><default>false</default></key>
     <key name="swap-percent" type="b"><default>true</default></key>
+    <key name="swap-free-percent" type="b"><default>false</default></key>
 
     <!-- NEW: DISK -->
     <key name="disk-read" type="b"><default>true</default></key>

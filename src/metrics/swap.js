@@ -52,6 +52,7 @@ export async function updateSWAP(state = {}, { force = false } = {}) {
         used: swapUsedG,
         free: swapFreeG,
         percent: swapPercent,
+        freePercent: 100 - swapPercent,
         total: swapTotalKb / (1024 * 1024),
     };
 }

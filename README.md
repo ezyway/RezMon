@@ -10,15 +10,15 @@ A minimalist, high-performance system resource monitor for the GNOME Shell top p
 - **Multi-GPU & VRAM**: 
   - Supports **NVIDIA**, **AMD Radeon**, and **Intel Graphics** (Auto, Dedicated, or Integrated selection).
   - Usage %, clock speed, temperature, and dedicated/shared VRAM (Used, Free, %).
-  - Laptop power-saving: Preserves discrete GPU D3cold sleep on battery.
-- **RAM & SWAP**: Memory usage, free memory, and dedicated swap tracking with color-coded alerts.
+  - Laptop power-saving: Preserves discrete GPU D3cold sleep on battery and shows `(Sleep)` with all other GPU metrics hidden while suspended.
+- **RAM & SWAP**: Memory usage, free memory, and dedicated swap tracking with color-coded alerts. Used % and free % can be enabled independently.
 - **Disk I/O & Storage**: Real-time read/write throughput rates and root (`/`) storage utilization.
 - **Network Bandwidth**: Live download (↓) and upload (↑) bandwidth, automatic default route or specific interface selection (Wi-Fi, Ethernet, VPN), and fractional precision.
 - **Live System Overview Dashboard**: Real-time popup overview with visual progress bars (`████░░░░ 50%`) for all hardware, top 3 CPU and Memory processes, and quick-launch system monitors (*GNOME System Monitor, Resources, btop, htop*).
 - **Customizable Layout & Styling**:
   - Display modes: **Text Headers** (`CPU`, `RAM`), **Symbolic Icons** (`⚙`, `🖴`), or **Compact Mode** (brackets only).
   - Dynamic drag/move metric ordering.
-  - Panel box positioning (Left, Center, Right) and centered Ubuntu date/clock repositioning.
+  - Panel box positioning (Left, Center, Right) and centered Ubuntu date/clock repositioning (notifications stay centered).
   - Custom brackets, delimiters, spacing, update intervals (1–5s), and yellow/red warning thresholds.
 
 ## Compatibility

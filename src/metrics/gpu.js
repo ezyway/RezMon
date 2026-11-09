@@ -132,7 +132,7 @@ let cachedNvidiaStats = null;
 let isNvidiaQuerying = false;
 
 async function queryNvidia(gpus) {
-    if (!gpus.nvidia || !gpus.hasNvidiaSmi) return null;
+    if (!gpus.nvidia) return null;
 
     // Check runtime power status to avoid waking sleeping dGPU on battery
     if (gpus.nvidia.devPath) {
@@ -150,6 +150,8 @@ async function queryNvidia(gpus) {
             };
         }
     }
+
+    if (!gpus.hasNvidiaSmi) return null;
 
     // Spawn non-blocking async query if not already in flight
     if (!isNvidiaQuerying) {
@@ -220,6 +222,23 @@ async function queryAmd(gpus) {
     if (!gpus.amd) return null;
     const dev = gpus.amd.devPath;
     const path = gpus.amd.path;
+
+    // Check runtime power status first, so we don't wake a suspended dGPU
+    if (dev) {
+        const runtimeStatus = await readFile(`${dev}/power/runtime_status`);
+        if (runtimeStatus && runtimeStatus.trim().toLowerCase() === 'suspended') {
+            return {
+                sleeping: true,
+                name: 'AMD',
+                usage: 0,
+                clock: 0,
+                temp: null,
+                vramUsed: 0,
+                vramFree: 0,
+                vramPercent: 0,
+            };
+        }
+    }
 
     let usage = null;
     let busy = dev ? await readFile(`${dev}/gpu_busy_percent`) : null;
@@ -420,25 +439,20 @@ export async function updateGPU(state) {
         return null;
     }
 
-    // Auto mode: prefer active dedicated GPU if present
+    // Auto mode: prefer the dedicated GPU. If it is sleeping, report the
+    // sleep state instead of silently falling back to the integrated GPU.
     if (gpus.nvidia) {
         const dgpu = await queryNvidia(gpus);
-        if (dgpu && !dgpu.sleeping) return dgpu;
-        if (dgpu && dgpu.sleeping && !gpus.intel && !gpus.amd) return dgpu;
+        if (dgpu) return dgpu;
     }
 
     if (gpus.amd) {
         const dgpu = await queryAmd(gpus);
-        if (dgpu && !dgpu.sleeping) return dgpu;
-        if (dgpu && dgpu.sleeping && !gpus.intel) return dgpu;
+        if (dgpu) return dgpu;
     }
 
     if (gpus.intel) {
         return await queryIntel(gpus, state);
-    }
-
-    if (gpus.amd) {
-        return await queryAmd(gpus);
     }
 
     return null;

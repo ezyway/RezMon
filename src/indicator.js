@@ -250,25 +250,27 @@ export class RezMonIndicator extends Button {
         const ram = this._lastMetrics?.ram;
         if (ram) {
             const ramPct = Number.isFinite(ram.percent) ? Math.round(ram.percent) : 0;
+            const ramFreePct = Number.isFinite(ram.freePercent) ? Math.round(ram.freePercent) : 0;
             const ramBar = this._makeProgressBar(ramPct, 14);
             const ramUsed = (ram.used || 0).toFixed(1);
             const ramTotal = ((ram.used || 0) + (ram.free || 0)).toFixed(1);
             const ramFree = (ram.free || 0).toFixed(1);
             lines.push(``);
             lines.push(`<b>${this.symbolRam || '🧠'} RAM</b>  <b>${ramUsed} GB</b> / ${ramTotal} GB (<span alpha="70%">Free: ${ramFree} GB</span>)`);
-            lines.push(`  <span font_family="monospace">${ramBar}</span> <b>${ramPct}%</b>`);
+            lines.push(`  <span font_family="monospace">${ramBar}</span> <b>${ramPct}%</b> used  │  <b>${ramFreePct}%</b> free`);
         }
 
         // SWAP
         const swap = this._lastMetrics?.swap;
         if (swap && swap.hasSwap) {
             const swapPct = Number.isFinite(swap.percent) ? Math.round(swap.percent) : 0;
+            const swapFreePct = Number.isFinite(swap.freePercent) ? Math.round(swap.freePercent) : 0;
             const swapBar = this._makeProgressBar(swapPct, 14);
             const swapUsed = (swap.used || 0).toFixed(1);
             const swapTotal = ((swap.used || 0) + (swap.free || 0)).toFixed(1);
             lines.push(``);
             lines.push(`<b>${this.symbolSwap || '⇄'} SWAP</b>  <b>${swapUsed} GB</b> / ${swapTotal} GB`);
-            lines.push(`  <span font_family="monospace">${swapBar}</span> <b>${swapPct}%</b>`);
+            lines.push(`  <span font_family="monospace">${swapBar}</span> <b>${swapPct}%</b> used  │  <b>${swapFreePct}%</b> free`);
         }
 
         // GPU
@@ -277,7 +279,7 @@ export class RezMonIndicator extends Button {
             const gpuTitle = gpu.name ? GLib.markup_escape_text(gpu.name, -1) : 'GPU';
             lines.push(``);
             if (gpu.sleeping) {
-                lines.push(`<b>${this.symbolGpu || '🎮'} GPU</b>  <span alpha="70%">${gpuTitle}</span> <span alpha="50%">(D3cold Sleep)</span>`);
+                lines.push(`<b>${this.symbolGpu || '🎮'} GPU</b>  ${this.b_open}Sleep${this.b_close}`);
             } else {
                 const gpuPct = Number.isFinite(gpu.usage) ? Math.round(gpu.usage) : 0;
                 const gpuBar = this._makeProgressBar(gpuPct, 14);
@@ -377,11 +379,13 @@ export class RezMonIndicator extends Button {
         this.ramUsed = this._settings.get_boolean('ram-used');
         this.ramFree = this._settings.get_boolean('ram-free');
         this.ramPercent = this._settings.get_boolean('ram-percent');
+        this.ramFreePercent = this._settings.get_boolean('ram-free-percent');
 
         // swap toggles
         this.swapUsed = this._settings.get_boolean('swap-used');
         this.swapFree = this._settings.get_boolean('swap-free');
         this.swapPercent = this._settings.get_boolean('swap-percent');
+        this.swapFreePercent = this._settings.get_boolean('swap-free-percent');
 
         // disk toggles
         this.diskRead = this._settings.get_boolean('disk-read');
@@ -751,6 +755,13 @@ export class RezMonIndicator extends Button {
                 values.push(`${ram.percent.toFixed(0)}%`);
         }
 
+        if (this.ramFreePercent && Number.isFinite(ram.freePercent)) {
+            if (ramColor)
+                values.push(`<span foreground="${ramColor}">${ram.freePercent.toFixed(0)}%</span>`);
+            else
+                values.push(`${ram.freePercent.toFixed(0)}%`);
+        }
+
         if (values.length === 0) return "";
 
         return `${this._getPrefix('ram')}${this.b_open}${values.join(` ${this.delimiter} `)}${this.b_close}`;
@@ -778,6 +789,13 @@ export class RezMonIndicator extends Button {
                 values.push(`<span foreground="${swapColor}">${swap.percent.toFixed(0)}%</span>`);
             else
                 values.push(`${swap.percent.toFixed(0)}%`);
+        }
+
+        if (this.swapFreePercent && Number.isFinite(swap.freePercent)) {
+            if (swapColor)
+                values.push(`<span foreground="${swapColor}">${swap.freePercent.toFixed(0)}%</span>`);
+            else
+                values.push(`${swap.freePercent.toFixed(0)}%`);
         }
 
         if (values.length === 0) return "";

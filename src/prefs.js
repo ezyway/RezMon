@@ -82,7 +82,7 @@ export default class RezMonPreferences extends ExtensionPreferences {
         gpuGroup.add(this._createComboRow(
             _("GPU Device"),
             settings,
-            [_("Auto (Dedicated when Active)"), _("Dedicated GPU"), _("Integrated GPU")],
+            [_("Auto (Prefer Dedicated)"), _("Dedicated GPU"), _("Integrated GPU")],
             ["auto", "dedicated", "integrated"],
             (value) => settings.set_string("gpu-device", value),
             () => settings.get_string("gpu-device")
@@ -112,7 +112,8 @@ export default class RezMonPreferences extends ExtensionPreferences {
 
         ramGroup.add(this._createSwitchRow(_("Used"), settings, "ram-used"));
         ramGroup.add(this._createSwitchRow(_("Free"), settings, "ram-free"));
-        ramGroup.add(this._createSwitchRow(_("Percent"), settings, "ram-percent"));
+        ramGroup.add(this._createSwitchRow(_("Used %"), settings, "ram-percent"));
+        ramGroup.add(this._createSwitchRow(_("Free %"), settings, "ram-free-percent"));
 
         /*
         --------------------
@@ -131,7 +132,8 @@ export default class RezMonPreferences extends ExtensionPreferences {
 
         swapGroup.add(this._createSwitchRow(_("Used"), settings, "swap-used"));
         swapGroup.add(this._createSwitchRow(_("Free"), settings, "swap-free"));
-        swapGroup.add(this._createSwitchRow(_("Percent"), settings, "swap-percent"));
+        swapGroup.add(this._createSwitchRow(_("Used %"), settings, "swap-percent"));
+        swapGroup.add(this._createSwitchRow(_("Free %"), settings, "swap-free-percent"));
 
         /*
         --------------------

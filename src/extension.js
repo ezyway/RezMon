@@ -2,7 +2,7 @@
  * Author: AZZlOl
  * Description: Displays CPU(use percentage, average clock speed, temp), RAM(Used, Free),
  * NET(Download, Upload) usage on the top bar.
- * Version: 21
+ * Version: 22
  * GNOME Shell Tested: 51
  * GNOME Shell Supported: 45, 46, 47, 48, 49, 50, 51
  * GitHub: https://github.com/ezyway/RezMon
@@ -11,9 +11,8 @@
  * License: MIT License
  */
 
-import Clutter from 'gi://Clutter';
 import { Extension, gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
-import { panel, messageTray } from 'resource:///org/gnome/shell/ui/main.js';
+import { panel } from 'resource:///org/gnome/shell/ui/main.js';
 
 import { RezMonIndicator } from './indicator.js';
 
@@ -91,8 +90,6 @@ export default class RezMonExtension extends Extension {
         // For center: index 0
         const targetIndex = (clockPos === 'left' && targetBox.get_n_children() > 0) ? 1 : 0;
         targetBox.insert_child_at_index(container, targetIndex);
-
-        this._updateBannerAlignment(clockPos);
     }
 
     _moveContainerToBox(container, boxName, priority = 0) {
@@ -113,19 +110,6 @@ export default class RezMonExtension extends Extension {
         const nChildren = targetBox.get_n_children();
         const idx = Math.min(Math.max(0, priority), nChildren);
         targetBox.insert_child_at_index(container, idx);
-    }
-
-    _updateBannerAlignment(clockPos) {
-        try {
-            if (messageTray) {
-                if (clockPos === 'left')
-                    messageTray.bannerAlignment = Clutter.ActorAlign.START;
-                else if (clockPos === 'right')
-                    messageTray.bannerAlignment = Clutter.ActorAlign.END;
-                else
-                    messageTray.bannerAlignment = Clutter.ActorAlign.CENTER;
-            }
-        } catch (_) {}
     }
 
     disable() {
@@ -153,7 +137,6 @@ export default class RezMonExtension extends Extension {
                     this._originalClockBox.insert_child_at_index(container, idx);
                 }
             }
-            this._updateBannerAlignment('center');
             this._originalClockBox = null;
         }
 
