@@ -31,6 +31,8 @@
 
     <!-- NEW: GPU -->
     <key name="gpu-device" type="s"><default>"auto"</default></key>
+    <key name="gpu-selected" type="as"><default>['all']</default></key>
+    <key name="gpu-selected-migrated" type="b"><default>false</default></key>
     <key name="gpu-usage" type="b"><default>true</default></key>
     <key name="gpu-clock" type="b"><default>false</default></key>
     <key name="gpu-temp" type="b"><default>true</default></key>

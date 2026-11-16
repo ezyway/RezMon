@@ -13,17 +13,22 @@ import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.j
 
 import { readFileLines } from './utils/file.js';
 import { updateCPU } from './metrics/cpu.js';
-import { updateGPU } from './metrics/gpu.js';
+import { filterSelectedGpus, updateGPU } from './metrics/gpu.js';
 import { updateRAM } from './metrics/ram.js';
 import { updateSWAP } from './metrics/swap.js';
 import { updateDisk } from './metrics/disk.js';
 import { updateNET } from './metrics/net.js';
 import { getTopProcesses } from './metrics/top.js';
 
+const POPUP_MENU_WIDTH = 420;
+const POPUP_MENU_FG = '#FDFDFD';
+const POPUP_MENU_FONT_SIZE = '8pt';
+
 export class RezMonIndicator extends Button {
 
     _init(extension, settings) {
         super._init(0, "RezMon", false);
+        this.menu?.setSourceAlignment(0);
 
         this._extension = extension;
         this._settings = settings;
@@ -75,17 +80,19 @@ export class RezMonIndicator extends Button {
             can_focus: false,
             style_class: 'rezmon-menu-dashboard',
         });
-        this._dashboardItem.set_style('width: 360px; min-width: 360px; max-width: 360px;');
+        this._dashboardItem.set_style(`width: ${POPUP_MENU_WIDTH}px; min-width: ${POPUP_MENU_WIDTH}px; max-width: ${POPUP_MENU_WIDTH}px; color: ${POPUP_MENU_FG}; font-size: ${POPUP_MENU_FONT_SIZE};`);
         this._dashboardLabel = new St.Label({
-            style: 'padding: 6px 10px; width: 360px; min-width: 360px; max-width: 360px; font-size: 9.5pt; line-height: 1.45;',
+            style: `padding: 6px 10px; width: ${POPUP_MENU_WIDTH}px; min-width: ${POPUP_MENU_WIDTH}px; max-width: ${POPUP_MENU_WIDTH}px; font-size: ${POPUP_MENU_FONT_SIZE}; line-height: 1.45; color: ${POPUP_MENU_FG};`,
         });
         this._dashboardLabel.clutter_text.set_use_markup(true);
         this._dashboardLabel.clutter_text.set_ellipsize(Pango.EllipsizeMode.END);
         this._dashboardItem.add_child(this._dashboardLabel);
         this.menu.addMenuItem(this._dashboardItem);
 
+        if (this.menu?.actor)
+            this.menu.actor.add_style_class_name('rezmon-popup-menu');
         if (this.menu && this.menu.box) {
-            this.menu.box.set_style('min-width: 360px; max-width: 360px;');
+            this.menu.box.set_style(`min-width: ${POPUP_MENU_WIDTH}px; max-width: ${POPUP_MENU_WIDTH}px; color: ${POPUP_MENU_FG}; font-size: ${POPUP_MENU_FONT_SIZE};`);
         }
 
         // 2. Separator
@@ -95,12 +102,14 @@ export class RezMonIndicator extends Button {
         const monitors = this._getAvailableMonitors();
         for (const mon of monitors) {
             const item = new PopupMenuItem(mon.name);
+            item.set_style(`color: ${POPUP_MENU_FG}; font-size: ${POPUP_MENU_FONT_SIZE};`);
             item.connect('activate', () => mon.launch());
             this.menu.addMenuItem(item);
         }
 
         // 4. Open Settings
         const settingsItem = new PopupMenuItem(_("Open Settings"));
+        settingsItem.set_style(`color: ${POPUP_MENU_FG}; font-size: ${POPUP_MENU_FONT_SIZE};`);
         settingsItem.connect('activate', () => {
             this._extension.openPreferences();
         });
@@ -109,6 +118,7 @@ export class RezMonIndicator extends Button {
         // Update dashboard and cadence whenever menu opens or closes
         this.menu.connectObject('open-state-changed', (menu, isOpen) => {
             if (isOpen) {
+                menu.setSourceAlignment(0);
                 this._menuTicks = 0;
                 this._updateMetrics();
                 this._refreshTopProcesses();
@@ -242,8 +252,8 @@ export class RezMonIndicator extends Button {
         const cpuPct = Number.isFinite(cpu?.usage) ? Math.round(cpu.usage) : 0;
         const cpuBar = this._makeProgressBar(cpuPct, 14);
         const cpuClock = Number.isFinite(cpu?.clock) ? `  │  ${cpu.clock.toFixed(2)} GHz` : '';
-        const cpuTemp = Number.isFinite(cpu?.temp) ? `  │  ${this._formatTemperature(cpu.temp)}` : '';
-        lines.push(`<b>${this.symbolCpu || '⚡'} CPU</b>  <span alpha="70%">${GLib.markup_escape_text(cpuInfo.model, -1)}</span>`);
+        const cpuTemp = Number.isFinite(cpu?.temp) ? `  │  ${this._formatTemperature(cpu.temp, false)}` : '';
+        lines.push(`<b>${this.symbolCpu || '⚡'} CPU</b>  ${GLib.markup_escape_text(cpuInfo.model, -1)}`);
         lines.push(`  <span font_family="monospace">${cpuBar}</span> <b>${cpuPct}%</b>${cpuClock}${cpuTemp}`);
 
         // Memory (RAM)
@@ -256,7 +266,7 @@ export class RezMonIndicator extends Button {
             const ramTotal = ((ram.used || 0) + (ram.free || 0)).toFixed(1);
             const ramFree = (ram.free || 0).toFixed(1);
             lines.push(``);
-            lines.push(`<b>${this.symbolRam || '🧠'} RAM</b>  <b>${ramUsed} GB</b> / ${ramTotal} GB (<span alpha="70%">Free: ${ramFree} GB</span>)`);
+            lines.push(`<b>${this.symbolRam || '🧠'} RAM</b>  <b>${ramUsed} GB</b> / ${ramTotal} GB (Free: ${ramFree} GB)`);
             lines.push(`  <span font_family="monospace">${ramBar}</span> <b>${ramPct}%</b> used  │  <b>${ramFreePct}%</b> free`);
         }
 
@@ -274,18 +284,26 @@ export class RezMonIndicator extends Button {
         }
 
         // GPU
-        const gpu = this._lastMetrics?.gpu;
-        if (gpu) {
-            const gpuTitle = gpu.name ? GLib.markup_escape_text(gpu.name, -1) : 'GPU';
+        const gpus = this._getVisibleGpus();
+        for (const gpu of gpus) {
+            const gpuNo = Number.isInteger(gpu.index) ? `GPU ${gpu.index}` : 'GPU';
+            const gpuTitle = gpu.name ? GLib.markup_escape_text(gpu.name, -1) : '';
             lines.push(``);
             if (gpu.sleeping) {
-                lines.push(`<b>${this.symbolGpu || '🎮'} GPU</b>  ${this.b_open}Sleep${this.b_close}`);
+                lines.push(`<b>${this.symbolGpu || '🎮'} ${gpuNo}</b>  ${gpuTitle}`);
+                lines.push(`  Sleep`);
+            } else if (gpu.unavailable) {
+                lines.push(`<b>${this.symbolGpu || '🎮'} ${gpuNo}</b>  ${gpuTitle}`);
+                lines.push(`  N/A`);
             } else {
                 const gpuPct = Number.isFinite(gpu.usage) ? Math.round(gpu.usage) : 0;
                 const gpuBar = this._makeProgressBar(gpuPct, 14);
-                const gpuTemp = Number.isFinite(gpu.temp) ? `  │  ${this._formatTemperature(gpu.temp)}` : '';
-                const vram = Number.isFinite(gpu.vramUsed) ? `  │  VRAM: <b>${gpu.vramUsed.toFixed(1)}G</b>` : '';
-                lines.push(`<b>${this.symbolGpu || '🎮'} GPU</b>  <span alpha="70%">${gpuTitle}</span>`);
+                const gpuTemp = Number.isFinite(gpu.temp) ? `  │  ${this._formatTemperature(gpu.temp, false)}` : '';
+                const vramLabel = gpu.vramKind === 'shared' ? 'Shared' : 'VRAM';
+                const vram = Number.isFinite(gpu.vramUsed)
+                    ? `  │  ${vramLabel}: <b>${gpu.vramUsed.toFixed(1)}G</b>`
+                    : '';
+                lines.push(`<b>${this.symbolGpu || '🎮'} ${gpuNo}</b>  ${gpuTitle}`);
                 lines.push(`  <span font_family="monospace">${gpuBar}</span> <b>${gpuPct}%</b>${gpuTemp}${vram}`);
             }
         }
@@ -319,7 +337,7 @@ export class RezMonIndicator extends Button {
         lines.push(`<b>Active Processes</b>`);
         if (this._topProcesses && (this._topProcesses.topCpu?.length > 0 || this._topProcesses.topMem?.length > 0)) {
             if (this._topProcesses.topCpu?.length > 0) {
-                lines.push(`  <span alpha="70%">Top CPU:</span>`);
+                lines.push(`  Top CPU:`);
                 for (const p of this._topProcesses.topCpu) {
                     const name = p.name.length > 18 ? `${p.name.substring(0, 17)}…` : p.name;
                     const paddedName = name.padEnd(19, ' ');
@@ -328,7 +346,7 @@ export class RezMonIndicator extends Button {
                 }
             }
             if (this._topProcesses.topMem?.length > 0) {
-                lines.push(`  <span alpha="70%">Top Memory:</span>`);
+                lines.push(`  Top Memory:`);
                 for (const p of this._topProcesses.topMem) {
                     const name = p.name.length > 18 ? `${p.name.substring(0, 17)}…` : p.name;
                     const paddedName = name.padEnd(19, ' ');
@@ -337,10 +355,10 @@ export class RezMonIndicator extends Button {
                 }
             }
         } else {
-            lines.push(`  <span alpha="50%">Fetching active processes…</span>`);
+            lines.push(`  Fetching active processes…`);
         }
 
-        return lines.join('\n');
+        return `<span foreground="#FDFDFD">${lines.join('\n')}</span>`;
     }
 
     _bindSettings() {
@@ -349,6 +367,7 @@ export class RezMonIndicator extends Button {
         });
 
         this._reloadSettings();
+        this._settingsReady = true;
     }
 
     _reloadSettings() {
@@ -368,6 +387,7 @@ export class RezMonIndicator extends Button {
 
         // gpu toggles
         this.gpuDevice = this._settings.get_string('gpu-device');
+        this.gpuSelected = this._settings.get_strv('gpu-selected');
         this.gpuUsage = this._settings.get_boolean('gpu-usage');
         this.gpuClock = this._settings.get_boolean('gpu-clock');
         this.gpuTemp  = this._settings.get_boolean('gpu-temp');
@@ -445,6 +465,8 @@ export class RezMonIndicator extends Button {
         this.interval = this._settings.get_int("update-interval") || 1;
 
         this._restartLoop(this.menu && this.menu.isOpen ? 1 : this.interval);
+        if (this._settingsReady)
+            this._updateMetrics();
     }
 
     _restartLoop(interval = this.interval) {
@@ -472,8 +494,12 @@ export class RezMonIndicator extends Button {
     }
 
     async _updateMetrics() {
-        if (this._destroyed || this._isUpdating)
+        if (this._destroyed)
             return;
+        if (this._isUpdating) {
+            this._metricsPending = true;
+            return;
+        }
         this._isUpdating = true;
 
         try {
@@ -505,7 +531,12 @@ export class RezMonIndicator extends Button {
 
         const formatters = {
             cpu: () => (this.showCPU && this._lastMetrics.cpu) ? this._formatCPU(this._lastMetrics.cpu) : null,
-            gpu: () => (this.showGPU && this._lastMetrics.gpu) ? this._formatGPU(this._lastMetrics.gpu) : null,
+            gpu: () => {
+                if (!this.showGPU)
+                    return null;
+                const gpus = this._getVisibleGpus();
+                return gpus.length ? this._formatGPU(gpus) : null;
+            },
             ram: () => (this.showRAM && this._lastMetrics.ram) ? this._formatRAM(this._lastMetrics.ram) : null,
             swap: () => (this.showSWAP && this._lastMetrics.swap) ? this._formatSWAP(this._lastMetrics.swap) : null,
             disk: () => (this.showDisk && this._lastMetrics.disk) ? this._formatDisk(this._lastMetrics.disk) : null,
@@ -534,6 +565,10 @@ export class RezMonIndicator extends Button {
         logError(e);
     } finally {
         this._isUpdating = false;
+        if (this._metricsPending && !this._destroyed) {
+            this._metricsPending = false;
+            this._updateMetrics();
+        }
     }
 }
 
@@ -571,7 +606,7 @@ export class RezMonIndicator extends Button {
         return null;
     }
 
-    _formatTemperature(tempC) {
+    _formatTemperature(tempC, useColor = true) {
 
         if (!Number.isFinite(tempC))
             return null;
@@ -587,7 +622,7 @@ export class RezMonIndicator extends Button {
 
         const text = `${val.toFixed(0)}${sym}`;
 
-        if (color)
+        if (useColor && color)
             return `<span foreground="${color}">${text}</span>`;
 
         return text;
@@ -669,14 +704,51 @@ export class RezMonIndicator extends Button {
         return `${this._getPrefix('cpu')}${this.b_open}${values.join(` ${this.delimiter} `)}${this.b_close}`;
     }
 
-    _formatGPU(gpu) {
+    _getVisibleGpus() {
+        const gpus = Array.isArray(this._lastMetrics?.gpu) ? this._lastMetrics.gpu : [];
+        return filterSelectedGpus(gpus, this.gpuSelected);
+    }
 
-        if (!gpu) return "";
+    _getGpuPrefix(gpu, multi) {
+        if (this.labelStyle === 'none')
+            return "";
+
+        if (!multi)
+            return this._getPrefix('gpu');
+
+        const index = Number.isInteger(gpu?.index) ? gpu.index : 0;
+        const symbol = this.symbolGpu || "🎮";
+
+        if (this.labelStyle === 'symbol')
+            return symbol;
+        if (this.labelStyle === 'both')
+            return `${symbol} GPU${index}`;
+        return `GPU${index}`;
+    }
+
+    _formatGPU(gpus) {
+        if (!Array.isArray(gpus) || gpus.length === 0)
+            return "";
+
+        const multi = gpus.length > 1;
+        const parts = gpus.map(gpu => this._formatOneGPU(gpu, multi)).filter(Boolean);
+        return parts.join(this.spacing);
+    }
+
+    _formatOneGPU(gpu, multi) {
+        if (!gpu)
+            return "";
+
+        const prefix = this._getGpuPrefix(gpu, multi);
 
         if (gpu.sleeping)
-            return `${this._getPrefix('gpu')}${this.b_open}Sleep${this.b_close}`;
+            return `${prefix}${this.b_open}Sleep${this.b_close}`;
+        if (gpu.unavailable)
+            return `${prefix}${this.b_open}N/A${this.b_close}`;
 
         const values = [];
+        if (multi && this.labelStyle === 'symbol')
+            values.push(`GPU${Number.isInteger(gpu.index) ? gpu.index : 0}`);
 
         if (this.gpuUsage) {
             const usage = Number.isFinite(gpu.usage) ? gpu.usage : 0;
@@ -722,13 +794,17 @@ export class RezMonIndicator extends Button {
 
         if (values.length === 0) {
             if (this.gpuVramUsed || this.gpuVramFree || this.gpuVramPercent)
-                return `${this._getPrefix('gpu')}${this.b_open}Shared${this.b_close}`;
-            if (this.gpuUsage || this.gpuClock || this.gpuTemp)
-                return `${this._getPrefix('gpu')}${this.b_open}${gpu.name || 'Active'}${this.b_close}`;
+                return `${prefix}${this.b_open}Shared${this.b_close}`;
+            if (this.gpuUsage || this.gpuClock || this.gpuTemp) {
+                const fallback = gpu.name
+                    ? GLib.markup_escape_text(gpu.name, -1)
+                    : 'Active';
+                return `${prefix}${this.b_open}${fallback}${this.b_close}`;
+            }
             return "";
         }
 
-        return `${this._getPrefix('gpu')}${this.b_open}${values.join(` ${this.delimiter} `)}${this.b_close}`;
+        return `${prefix}${this.b_open}${values.join(` ${this.delimiter} `)}${this.b_close}`;
     }
 
     _formatRAM(ram) {
