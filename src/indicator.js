@@ -8,12 +8,12 @@ import GObject from 'gi://GObject';
 import Pango from 'gi://Pango';
 
 import { Button } from 'resource:///org/gnome/shell/ui/panelMenu.js';
-import { PopupMenuItem, PopupBaseMenuItem, PopupSeparatorMenuItem } from 'resource:///org/gnome/shell/ui/popupMenu.js';
+import { Ornament, PopupMenuItem, PopupBaseMenuItem, PopupSeparatorMenuItem } from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 
 import { readFileLines } from './utils/file.js';
 import { updateCPU } from './metrics/cpu.js';
-import { filterSelectedGpus, updateGPU } from './metrics/gpu.js';
+import { filterSelectedGpus, listGPUs, updateGPU } from './metrics/gpu.js';
 import { updateRAM } from './metrics/ram.js';
 import { updateSWAP } from './metrics/swap.js';
 import { updateDisk } from './metrics/disk.js';
@@ -22,6 +22,26 @@ import { getTopProcesses } from './metrics/top.js';
 
 const POPUP_MENU_WIDTH = 420;
 const POPUP_MENU_FONT_SIZE = '8pt';
+const POPUP_DASH_SIDE_MARGIN = 10;
+
+function createBoxLayout(params = {}) {
+    const vertical = params.vertical;
+    const rest = { ...params };
+    delete rest.vertical;
+
+    const box = new St.BoxLayout(rest);
+    if (vertical === undefined)
+        return box;
+
+    try {
+        box.orientation = vertical
+            ? Clutter.Orientation.VERTICAL
+            : Clutter.Orientation.HORIZONTAL;
+    } catch (_) {
+        box.vertical = vertical;
+    }
+    return box;
+}
 
 export class RezMonIndicator extends Button {
 
@@ -50,6 +70,7 @@ export class RezMonIndicator extends Button {
         this._buildMenu();
 
         this._loadCpuHardwareInfo();
+        this._loadGpuInventory();
         this._refreshTopProcesses();
         this._updateMetrics();
     }
@@ -67,6 +88,11 @@ export class RezMonIndicator extends Button {
         this.prev_disk_read = 0;
         this.prev_disk_write = 0;
         this.prev_disk_time = 0;
+
+        this._detectedGpus = [];
+        this._dashboardGpuSlots = null;
+        this._dash = null;
+        this._topProcesses = { topCpu: [], topMem: [] };
     }
 
     _buildMenu() {
@@ -79,13 +105,12 @@ export class RezMonIndicator extends Button {
             can_focus: false,
             style_class: 'rezmon-menu-dashboard',
         });
-        this._dashboardItem.set_style(`width: ${POPUP_MENU_WIDTH}px; min-width: ${POPUP_MENU_WIDTH}px; max-width: ${POPUP_MENU_WIDTH}px; font-size: ${POPUP_MENU_FONT_SIZE};`);
-        this._dashboardLabel = new St.Label({
-            style: `padding: 6px 10px; width: ${POPUP_MENU_WIDTH}px; min-width: ${POPUP_MENU_WIDTH}px; max-width: ${POPUP_MENU_WIDTH}px; font-size: ${POPUP_MENU_FONT_SIZE}; line-height: 1.45;`,
-        });
-        this._dashboardLabel.clutter_text.set_use_markup(true);
-        this._dashboardLabel.clutter_text.set_ellipsize(Pango.EllipsizeMode.END);
-        this._dashboardItem.add_child(this._dashboardLabel);
+        this._dashboardItem.set_style(`font-size: ${POPUP_MENU_FONT_SIZE}; padding: 0;`);
+        this._dashboardItem.setOrnament(Ornament.HIDDEN);
+        this._dashboardItem.x_expand = true;
+        this._dashboardItem.clip_to_allocation = true;
+        this._buildDashboard();
+        this._dashboardItem.add_child(this._dash.box);
         this.menu.addMenuItem(this._dashboardItem);
 
         if (this.menu?.actor)
@@ -118,20 +143,54 @@ export class RezMonIndicator extends Button {
         this.menu.connectObject('open-state-changed', (menu, isOpen) => {
             if (isOpen) {
                 menu.setSourceAlignment(0);
+                this._dashboardGpuSlots = this._currentGpuSlots();
                 this._menuTicks = 0;
                 this._updateMetrics();
                 this._refreshTopProcesses();
                 this._restartLoop(1);
             } else {
+                this._dashboardGpuSlots = null;
                 this._menuTicks = 0;
                 this._restartLoop(this.interval);
             }
         }, this);
     }
 
+    async _loadGpuInventory() {
+        try {
+            this._detectedGpus = await listGPUs() || [];
+        } catch (_) {
+            this._detectedGpus = [];
+        }
+        if (this.menu?.isOpen)
+            this._updateDashboard();
+    }
+
+    _currentGpuSlots() {
+        const detected = Array.isArray(this._detectedGpus) ? this._detectedGpus : [];
+        const selected = detected.length
+            ? filterSelectedGpus(detected, this.gpuSelected)
+            : this._getVisibleGpus();
+        return selected.map(gpu => ({
+            id: gpu.id,
+            index: gpu.index,
+            name: gpu.name || 'Unknown GPU',
+        }));
+    }
+
+    _gpuSlotsForDashboard() {
+        const slots = this._currentGpuSlots();
+        if (!this.menu?.isOpen)
+            return slots;
+        if (!Array.isArray(this._dashboardGpuSlots) || this._dashboardGpuSlots.length === 0)
+            this._dashboardGpuSlots = slots;
+        return this._dashboardGpuSlots;
+    }
+
     _refreshTopProcesses() {
         getTopProcesses().then((top) => {
-            this._topProcesses = top;
+            if (top?.topCpu?.length || top?.topMem?.length)
+                this._topProcesses = top;
             if (this.menu && this.menu.isOpen) {
                 this._updateDashboard();
             }
@@ -225,139 +284,389 @@ export class RezMonIndicator extends Button {
         return false;
     }
 
+    _createDashLabel(text = '', styleClass = 'rezmon-dash-text') {
+        const label = new St.Label({
+            text: text ?? '',
+            y_align: Clutter.ActorAlign.CENTER,
+            style_class: styleClass,
+        });
+        label.clutter_text.set_line_wrap(false);
+        label.clutter_text.set_ellipsize(Pango.EllipsizeMode.NONE);
+        return label;
+    }
+
+    _createEllipsizeLabel(text = '', styleClass = 'rezmon-dash-sub') {
+        const label = this._createDashLabel(text, styleClass);
+        label.clutter_text.set_ellipsize(Pango.EllipsizeMode.END);
+        return label;
+    }
+
+    _createFlexRow() {
+        const row = createBoxLayout({
+            vertical: false,
+            x_expand: true,
+            y_align: Clutter.ActorAlign.CENTER,
+            style_class: 'rezmon-dash-row',
+        });
+        const left = createBoxLayout({
+            vertical: false,
+            y_align: Clutter.ActorAlign.CENTER,
+            style_class: 'rezmon-dash-left',
+            style: 'spacing: 6px;',
+        });
+        const spacer = new St.Widget({
+            x_expand: true,
+            x_align: Clutter.ActorAlign.FILL,
+            style_class: 'rezmon-dash-spacer',
+        });
+        const right = createBoxLayout({
+            vertical: false,
+            x_align: Clutter.ActorAlign.END,
+            y_align: Clutter.ActorAlign.CENTER,
+            style_class: 'rezmon-dash-right',
+            style: 'spacing: 6px;',
+        });
+        row.add_child(left);
+        row.add_child(spacer);
+        row.add_child(right);
+        return { row, left, right };
+    }
+
+    _addRightSep(right) {
+        right.add_child(this._createDashLabel('│', 'rezmon-dash-sep'));
+    }
+
+    _createMetricRow() {
+        const section = createBoxLayout({
+            vertical: true,
+            x_expand: true,
+            style_class: 'rezmon-dash-metric',
+            style: 'spacing: 1px;',
+        });
+
+        const title = createBoxLayout({
+            vertical: false,
+            x_expand: true,
+            y_align: Clutter.ActorAlign.CENTER,
+            style_class: 'rezmon-dash-title-row',
+            style: 'spacing: 6px;',
+        });
+        const icon = this._createDashLabel('', 'rezmon-dash-icon');
+        const name = this._createEllipsizeLabel('', 'rezmon-dash-name');
+        name.x_expand = true;
+        name.x_align = Clutter.ActorAlign.FILL;
+        title.add_child(icon);
+        title.add_child(name);
+
+        const { row, left, right } = this._createFlexRow();
+        const bar = this._createDashLabel(this._makeProgressBar(0), 'rezmon-dash-bar');
+        left.add_child(bar);
+
+        section.add_child(title);
+        section.add_child(row);
+        return { row: section, left, right, icon, name, bar };
+    }
+
+    _createGpuRow() {
+        const metric = this._createMetricRow();
+        const usage = this._createDashLabel(this._dashPct(NaN), 'rezmon-dash-num');
+        const temp = this._createDashLabel('—℃', 'rezmon-dash-num');
+        const vram = this._createDashLabel('VRAM —.–G', 'rezmon-dash-num');
+        metric.right.add_child(usage);
+        this._addRightSep(metric.right);
+        metric.right.add_child(temp);
+        this._addRightSep(metric.right);
+        metric.right.add_child(vram);
+        return { ...metric, usage, temp, vram };
+    }
+
+    _createProcessRow() {
+        const row = createBoxLayout({
+            vertical: false,
+            x_expand: true,
+            y_align: Clutter.ActorAlign.CENTER,
+            style_class: 'rezmon-dash-row rezmon-dash-proc-row',
+            style: 'spacing: 6px;',
+        });
+        const bar = this._createDashLabel(this._makeProgressBar(0), 'rezmon-dash-bar');
+        const name = this._createEllipsizeLabel('—', 'rezmon-dash-proc-name');
+        name.x_expand = true;
+        name.x_align = Clutter.ActorAlign.FILL;
+        const pct = this._createDashLabel(this._dashPct(NaN), 'rezmon-dash-pct');
+        pct.x_align = Clutter.ActorAlign.END;
+        row.add_child(bar);
+        row.add_child(name);
+        row.add_child(pct);
+        return { row, bar, name, pct };
+    }
+
+    _buildDashboard() {
+        const box = createBoxLayout({
+            vertical: true,
+            x_expand: true,
+            style_class: 'rezmon-dashboard',
+            style: `font-size: ${POPUP_MENU_FONT_SIZE}; spacing: 3px; margin-left: ${POPUP_DASH_SIDE_MARGIN}px; margin-right: ${POPUP_DASH_SIDE_MARGIN}px;`,
+        });
+        box.clip_to_allocation = true;
+
+        const heading = this._createDashLabel('System Status Overview', 'rezmon-dash-heading');
+        box.add_child(heading);
+
+        const cpu = this._createMetricRow();
+        const cpuUsage = this._createDashLabel(this._dashPct(NaN), 'rezmon-dash-num');
+        const cpuClock = this._createDashLabel(this._dashClock(NaN), 'rezmon-dash-num');
+        const cpuTemp = this._createDashLabel('—℃', 'rezmon-dash-num');
+        cpu.right.add_child(cpuUsage);
+        this._addRightSep(cpu.right);
+        cpu.right.add_child(cpuClock);
+        this._addRightSep(cpu.right);
+        cpu.right.add_child(cpuTemp);
+        box.add_child(cpu.row);
+
+        const ram = this._createMetricRow();
+        const ramUsed = this._createDashLabel(this._dashGb(NaN), 'rezmon-dash-num');
+        const ramFree = this._createDashLabel(this._dashPct(NaN), 'rezmon-dash-num');
+        ram.right.add_child(ramUsed);
+        this._addRightSep(ram.right);
+        ram.right.add_child(ramFree);
+        box.add_child(ram.row);
+
+        const swap = this._createMetricRow();
+        const swapUsed = this._createDashLabel(this._dashGb(NaN), 'rezmon-dash-num');
+        const swapFree = this._createDashLabel(this._dashPct(NaN), 'rezmon-dash-num');
+        swap.right.add_child(swapUsed);
+        this._addRightSep(swap.right);
+        swap.right.add_child(swapFree);
+        box.add_child(swap.row);
+
+        const gpuBox = createBoxLayout({
+            vertical: true,
+            x_expand: true,
+            style_class: 'rezmon-dash-gpu-list',
+        });
+        box.add_child(gpuBox);
+
+        const disk = this._createMetricRow();
+        const diskUsed = this._createDashLabel('—.– GB / —.– GB', 'rezmon-dash-num');
+        const diskPct = this._createDashLabel(this._dashPct(NaN), 'rezmon-dash-num');
+        disk.right.add_child(diskUsed);
+        this._addRightSep(disk.right);
+        disk.right.add_child(diskPct);
+        box.add_child(disk.row);
+
+        const netHead = this._createFlexRow();
+        const netIcon = this._createDashLabel(this.symbolNet || '📶', 'rezmon-dash-icon');
+        const netName = this._createEllipsizeLabel('Network', 'rezmon-dash-name');
+        netHead.left.add_child(netIcon);
+        netHead.left.add_child(netName);
+        box.add_child(netHead.row);
+
+        const netDown = this._createFlexRow();
+        const netDownBar = this._createDashLabel(this._makeProgressBar(0), 'rezmon-dash-bar');
+        const netDownLabel = this._createDashLabel('↓', 'rezmon-dash-dir');
+        const netDownVal = this._createDashLabel(this._formatDataRate(0), 'rezmon-dash-pct');
+        netDown.left.add_child(netDownBar);
+        netDown.left.add_child(netDownLabel);
+        netDown.right.add_child(netDownVal);
+        box.add_child(netDown.row);
+
+        const netUp = this._createFlexRow();
+        const netUpBar = this._createDashLabel(this._makeProgressBar(0), 'rezmon-dash-bar');
+        const netUpLabel = this._createDashLabel('↑', 'rezmon-dash-dir');
+        const netUpVal = this._createDashLabel(this._formatDataRate(0), 'rezmon-dash-pct');
+        netUp.left.add_child(netUpBar);
+        netUp.left.add_child(netUpLabel);
+        netUp.right.add_child(netUpVal);
+        box.add_child(netUp.row);
+
+        box.add_child(this._createDashLabel('Active Processes', 'rezmon-dash-heading'));
+        box.add_child(this._createDashLabel('Top CPU', 'rezmon-dash-subtitle'));
+        const procCpu = [this._createProcessRow(), this._createProcessRow(), this._createProcessRow()];
+        for (const proc of procCpu)
+            box.add_child(proc.row);
+
+        box.add_child(this._createDashLabel('Top Memory', 'rezmon-dash-subtitle'));
+        const procMem = [this._createProcessRow(), this._createProcessRow(), this._createProcessRow()];
+        for (const proc of procMem)
+            box.add_child(proc.row);
+
+        this._dash = {
+            box,
+            cpu: { ...cpu, usage: cpuUsage, clock: cpuClock, temp: cpuTemp },
+            ram: { ...ram, used: ramUsed, free: ramFree },
+            swap: { ...swap, used: swapUsed, free: swapFree },
+            gpuBox,
+            gpuRows: [],
+            disk: { ...disk, used: diskUsed, pct: diskPct },
+            net: {
+                icon: netIcon,
+                name: netName,
+                downBar: netDownBar,
+                downVal: netDownVal,
+                upBar: netUpBar,
+                upVal: netUpVal,
+            },
+            procCpu,
+            procMem,
+        };
+        this._updateDashboard();
+    }
+
+    _setDashText(label, text) {
+        const value = text ?? '';
+        if (!label || label.text === value)
+            return;
+        label.text = value;
+    }
+
+    _syncGpuDashRows(slots) {
+        const ids = slots.map(slot => slot.id).join('\0');
+        if (this._dash.gpuKey === ids)
+            return;
+
+        this._dash.gpuBox.destroy_all_children();
+        this._dash.gpuRows = slots.map(() => {
+            const row = this._createGpuRow();
+            this._dash.gpuBox.add_child(row.row);
+            return row;
+        });
+        this._dash.gpuKey = ids;
+    }
+
+    _fillProcessRows(rows, list, kind) {
+        for (let i = 0; i < rows.length; i++) {
+            const proc = Array.isArray(list) ? list[i] : null;
+            const pctVal = kind === 'mem'
+                ? (Number.isFinite(proc?.mem) ? proc.mem : 0)
+                : (Number.isFinite(proc?.cpu) ? proc.cpu : 0);
+            const pct = !proc
+                ? this._dashPct(NaN)
+                : kind === 'mem'
+                    ? `${Number(proc.mem || 0).toFixed(1)}%`
+                    : `${Math.round(proc.cpu || 0)}%`;
+            this._setDashText(rows[i].bar, this._makeProgressBar(pctVal));
+            this._setDashText(rows[i].name, proc?.name || '—');
+            this._setDashText(rows[i].pct, pct);
+        }
+    }
+
     _updateDashboard() {
-        if (!this._dashboardLabel) return;
-        const markup = this._generateDashboardMarkup();
-        this._dashboardLabel.clutter_text.set_markup(markup);
+        if (!this._dash)
+            return;
+
+        const cpu = this._lastMetrics?.cpu || {};
+        const ram = this._lastMetrics?.ram || {};
+        const swap = this._lastMetrics?.swap || {};
+        const disk = this._lastMetrics?.disk || {};
+        const net = this._lastMetrics?.net || {};
+        const gpuMetrics = new Map(
+            (Array.isArray(this._lastMetrics?.gpu) ? this._lastMetrics.gpu : [])
+                .filter(gpu => gpu?.id)
+                .map(gpu => [gpu.id, gpu])
+        );
+
+        const cpuPct = Number.isFinite(cpu.usage) ? cpu.usage : 0;
+        this._setDashText(this._dash.cpu.icon, this.symbolCpu || '⚡');
+        this._setDashText(this._dash.cpu.name, 'CPU');
+        this._setDashText(this._dash.cpu.bar, this._makeProgressBar(cpuPct));
+        this._setDashText(this._dash.cpu.usage, this._dashPct(cpu.usage));
+        this._setDashText(this._dash.cpu.clock, this._dashClock(cpu.clock));
+        this._setDashText(this._dash.cpu.temp, this._dashTemp(cpu.temp));
+
+        const ramUsed = Number.isFinite(ram.used) ? ram.used : null;
+        const ramFree = Number.isFinite(ram.free) ? ram.free : null;
+        const ramTotal = (ramUsed !== null && ramFree !== null) ? ramUsed + ramFree : null;
+        this._setDashText(this._dash.ram.icon, this.symbolRam || '🧠');
+        this._setDashText(this._dash.ram.name, 'RAM');
+        this._setDashText(this._dash.ram.bar, this._makeProgressBar(ram.percent));
+        this._setDashText(this._dash.ram.used, `${this._dashGb(ramUsed)} / ${this._dashGb(ramTotal)}`);
+        this._setDashText(this._dash.ram.free, `${this._dashPct(ram.freePercent)} free`);
+
+        const swapUsed = Number.isFinite(swap.used) ? swap.used : null;
+        const swapFree = Number.isFinite(swap.free) ? swap.free : null;
+        const swapTotal = (swapUsed !== null && swapFree !== null) ? swapUsed + swapFree : null;
+        this._setDashText(this._dash.swap.icon, this.symbolSwap || '⇄');
+        this._setDashText(this._dash.swap.name, 'SWAP');
+        this._setDashText(this._dash.swap.bar, this._makeProgressBar(swap.percent));
+        this._setDashText(this._dash.swap.used, `${this._dashGb(swapUsed)} / ${this._dashGb(swapTotal)}`);
+        this._setDashText(this._dash.swap.free, `${this._dashPct(swap.freePercent)} free`);
+
+        const gpuSlots = this._gpuSlotsForDashboard();
+        this._syncGpuDashRows(gpuSlots);
+        gpuSlots.forEach((slot, index) => {
+            const widgets = this._dash.gpuRows[index];
+            if (!widgets)
+                return;
+            const gpu = { ...slot, ...(gpuMetrics.get(slot.id) || {}) };
+            const idle = Boolean(gpu.sleeping || gpu.unavailable);
+            const gpuPct = idle ? 0 : (Number.isFinite(gpu.usage) ? gpu.usage : 0);
+            const gpuNo = Number.isInteger(gpu.index) ? `GPU ${gpu.index}` : 'GPU';
+            const stateTag = gpu.sleeping ? ' Sleep' : gpu.unavailable ? ' N/A' : '';
+            const vramLabel = gpu.vramKind === 'shared' ? 'Shared' : 'VRAM';
+            const vram = idle || !Number.isFinite(gpu.vramUsed) ? '—.–' : gpu.vramUsed.toFixed(1);
+            const gpuLabel = gpu.name ? `${gpuNo} ${gpu.name}${stateTag}` : `${gpuNo}${stateTag}`;
+            this._setDashText(widgets.icon, this.symbolGpu || '🎮');
+            this._setDashText(widgets.name, gpuLabel);
+            this._setDashText(widgets.bar, this._makeProgressBar(gpuPct));
+            this._setDashText(widgets.usage, this._dashPct(gpuPct));
+            this._setDashText(widgets.temp, idle ? '—℃' : this._dashTemp(gpu.temp));
+            this._setDashText(widgets.vram, `${vramLabel} ${vram}G`);
+        });
+
+        const diskTotal = Number.isFinite(disk.spaceUsed) && Number.isFinite(disk.spaceFree)
+            ? disk.spaceUsed + disk.spaceFree
+            : null;
+        this._setDashText(this._dash.disk.icon, this.symbolDisk || '💽');
+        this._setDashText(this._dash.disk.name, 'Disk');
+        this._setDashText(this._dash.disk.bar, this._makeProgressBar(disk.spacePercent));
+        this._setDashText(this._dash.disk.used, `${this._formatDiskCapacity(disk.spaceUsed)} / ${this._formatDiskCapacity(diskTotal)}`);
+        this._setDashText(this._dash.disk.pct, `${this._dashPct(disk.spacePercent)} used`);
+
+        const iface = this.prev_iface || 'Active';
+        this._setDashText(this._dash.net.icon, this.symbolNet || '📶');
+        this._setDashText(this._dash.net.name, `Network (${iface})`);
+        this._setDashText(this._dash.net.downBar, this._makeProgressBar(this._netBarPercent(net.down)));
+        this._setDashText(this._dash.net.downVal, this._formatDataRate(net.down));
+        this._setDashText(this._dash.net.upBar, this._makeProgressBar(this._netBarPercent(net.up)));
+        this._setDashText(this._dash.net.upVal, this._formatDataRate(net.up));
+
+        this._fillProcessRows(this._dash.procCpu, this._topProcesses?.topCpu, 'cpu');
+        this._fillProcessRows(this._dash.procMem, this._topProcesses?.topMem, 'mem');
     }
 
     _makeProgressBar(percent, length = 14) {
-        const clamped = Math.max(0, Math.min(100, Math.round(percent)));
-        const filled = Math.round((clamped / 100) * length);
-        const empty = length - filled;
-        return '█'.repeat(filled) + '░'.repeat(empty);
+        const raw = Number.isFinite(percent) ? percent : 0;
+        const clamped = Math.max(0, Math.min(100, Math.round(raw)));
+        const filled = Math.max(0, Math.min(length, Math.round((clamped / 100) * length)));
+        return '█'.repeat(filled) + '░'.repeat(length - filled);
     }
 
-    _generateDashboardMarkup() {
-        const lines = [];
+    _netBarPercent(bytesPerSec) {
+        const cap = 125000000; // 1 Gbit/s
+        const raw = Number.isFinite(bytesPerSec) ? Math.max(0, bytesPerSec) : 0;
+        return Math.min(100, (raw / cap) * 100);
+    }
 
-        // Title
-        lines.push(`<b><big>System Status Overview</big></b>`);
-        lines.push(``);
+    _dashPct(value) {
+        if (!Number.isFinite(value))
+            return '  —%';
+        return `${Math.round(value)}%`.padStart(4, ' ');
+    }
 
-        // CPU
-        const cpu = this._lastMetrics?.cpu || { usage: 0, clock: null, temp: null };
-        const cpuInfo = this._getCpuHardwareInfo();
-        const cpuPct = Number.isFinite(cpu?.usage) ? Math.round(cpu.usage) : 0;
-        const cpuBar = this._makeProgressBar(cpuPct, 14);
-        const cpuClock = Number.isFinite(cpu?.clock) ? `  │  ${cpu.clock.toFixed(2)} GHz` : '';
-        const cpuTemp = Number.isFinite(cpu?.temp) ? `  │  ${this._formatTemperature(cpu.temp, false)}` : '';
-        lines.push(`<b>${this.symbolCpu || '⚡'} CPU</b>  ${GLib.markup_escape_text(cpuInfo.model, -1)}`);
-        lines.push(`  <span font_family="monospace">${cpuBar}</span> <b>${cpuPct}%</b>${cpuClock}${cpuTemp}`);
+    _dashClock(clock) {
+        if (!Number.isFinite(clock))
+            return '—.—— GHz';
+        return `${clock.toFixed(2)} GHz`;
+    }
 
-        // Memory (RAM)
-        const ram = this._lastMetrics?.ram;
-        if (ram) {
-            const ramPct = Number.isFinite(ram.percent) ? Math.round(ram.percent) : 0;
-            const ramFreePct = Number.isFinite(ram.freePercent) ? Math.round(ram.freePercent) : 0;
-            const ramBar = this._makeProgressBar(ramPct, 14);
-            const ramUsed = (ram.used || 0).toFixed(1);
-            const ramTotal = ((ram.used || 0) + (ram.free || 0)).toFixed(1);
-            const ramFree = (ram.free || 0).toFixed(1);
-            lines.push(``);
-            lines.push(`<b>${this.symbolRam || '🧠'} RAM</b>  <b>${ramUsed} GB</b> / ${ramTotal} GB (Free: ${ramFree} GB)`);
-            lines.push(`  <span font_family="monospace">${ramBar}</span> <b>${ramPct}%</b> used  │  <b>${ramFreePct}%</b> free`);
-        }
+    _dashTemp(tempC) {
+        return this._formatTemperature(tempC, false) || '—℃';
+    }
 
-        // SWAP
-        const swap = this._lastMetrics?.swap;
-        if (swap && swap.hasSwap) {
-            const swapPct = Number.isFinite(swap.percent) ? Math.round(swap.percent) : 0;
-            const swapFreePct = Number.isFinite(swap.freePercent) ? Math.round(swap.freePercent) : 0;
-            const swapBar = this._makeProgressBar(swapPct, 14);
-            const swapUsed = (swap.used || 0).toFixed(1);
-            const swapTotal = ((swap.used || 0) + (swap.free || 0)).toFixed(1);
-            lines.push(``);
-            lines.push(`<b>${this.symbolSwap || '⇄'} SWAP</b>  <b>${swapUsed} GB</b> / ${swapTotal} GB`);
-            lines.push(`  <span font_family="monospace">${swapBar}</span> <b>${swapPct}%</b> used  │  <b>${swapFreePct}%</b> free`);
-        }
-
-        // GPU
-        const gpus = this._getVisibleGpus();
-        for (const gpu of gpus) {
-            const gpuNo = Number.isInteger(gpu.index) ? `GPU ${gpu.index}` : 'GPU';
-            const gpuTitle = gpu.name ? GLib.markup_escape_text(gpu.name, -1) : '';
-            lines.push(``);
-            if (gpu.sleeping) {
-                lines.push(`<b>${this.symbolGpu || '🎮'} ${gpuNo}</b>  ${gpuTitle}`);
-                lines.push(`  Sleep`);
-            } else if (gpu.unavailable) {
-                lines.push(`<b>${this.symbolGpu || '🎮'} ${gpuNo}</b>  ${gpuTitle}`);
-                lines.push(`  N/A`);
-            } else {
-                const gpuPct = Number.isFinite(gpu.usage) ? Math.round(gpu.usage) : 0;
-                const gpuBar = this._makeProgressBar(gpuPct, 14);
-                const gpuTemp = Number.isFinite(gpu.temp) ? `  │  ${this._formatTemperature(gpu.temp, false)}` : '';
-                const vramLabel = gpu.vramKind === 'shared' ? 'Shared' : 'VRAM';
-                const vram = Number.isFinite(gpu.vramUsed)
-                    ? `  │  ${vramLabel}: <b>${gpu.vramUsed.toFixed(1)}G</b>`
-                    : '';
-                lines.push(`<b>${this.symbolGpu || '🎮'} ${gpuNo}</b>  ${gpuTitle}`);
-                lines.push(`  <span font_family="monospace">${gpuBar}</span> <b>${gpuPct}%</b>${gpuTemp}${vram}`);
-            }
-        }
-
-        // Storage / Root Filesystem
-        const disk = this._lastMetrics?.disk;
-        if (disk) {
-            const diskPct = Number.isFinite(disk.spacePercent) ? Math.round(disk.spacePercent) : 0;
-            const diskBar = this._makeProgressBar(diskPct, 14);
-            const usedStr = this._formatDiskCapacity(disk.spaceUsed || 0);
-            const totalStr = this._formatDiskCapacity((disk.spaceUsed || 0) + (disk.spaceFree || 0));
-            const rRate = this._formatDataRate(disk.read || 0);
-            const wRate = this._formatDataRate(disk.write || 0);
-            lines.push(``);
-            lines.push(`<b>${this.symbolDisk || '💽'} Storage (/)</b>  <b>${usedStr}</b> / ${totalStr}`);
-            lines.push(`  <span font_family="monospace">${diskBar}</span> <b>${diskPct}%</b>  │  I/O: R ${rRate}  W ${wRate}`);
-        }
-
-        // Network
-        const net = this._lastMetrics?.net;
-        if (net) {
-            const iface = this.prev_iface || 'Active';
-            const down = this._formatDataRate(net.down || 0);
-            const up = this._formatDataRate(net.up || 0);
-            lines.push(``);
-            lines.push(`<b>${this.symbolNet || '📶'} Network (${GLib.markup_escape_text(iface, -1)})</b>  ↓ <b>${down}</b>  │  ↑ <b>${up}</b>`);
-        }
-
-        // Top Resource Consumers (Vertical list)
-        lines.push(``);
-        lines.push(`<b>Active Processes</b>`);
-        if (this._topProcesses && (this._topProcesses.topCpu?.length > 0 || this._topProcesses.topMem?.length > 0)) {
-            if (this._topProcesses.topCpu?.length > 0) {
-                lines.push(`  Top CPU:`);
-                for (const p of this._topProcesses.topCpu) {
-                    const name = p.name.length > 18 ? `${p.name.substring(0, 17)}…` : p.name;
-                    const paddedName = name.padEnd(19, ' ');
-                    const pct = `${Math.round(p.cpu)}%`.padStart(4, ' ');
-                    lines.push(`    <span font_family="monospace">• ${GLib.markup_escape_text(paddedName, -1)} <b>${pct}</b></span>`);
-                }
-            }
-            if (this._topProcesses.topMem?.length > 0) {
-                lines.push(`  Top Memory:`);
-                for (const p of this._topProcesses.topMem) {
-                    const name = p.name.length > 18 ? `${p.name.substring(0, 17)}…` : p.name;
-                    const paddedName = name.padEnd(19, ' ');
-                    const pct = `${p.mem.toFixed(1)}%`.padStart(5, ' ');
-                    lines.push(`    <span font_family="monospace">• ${GLib.markup_escape_text(paddedName, -1)} <b>${pct}</b></span>`);
-                }
-            }
-        } else {
-            lines.push(`  Fetching active processes…`);
-        }
-
-        return lines.join('\n');
+    _dashGb(value) {
+        if (!Number.isFinite(value))
+            return '—.– GB';
+        return `${value.toFixed(1)} GB`;
     }
 
     _bindSettings() {
@@ -994,7 +1303,8 @@ export class RezMonIndicator extends Button {
             val /= 1024;
             u++;
         }
-        return `${val < 10 && u > 0 ? val.toFixed(1) : Math.round(val)} ${units[u]}`;
+        const num = val < 10 && u > 0 ? val.toFixed(1) : String(Math.round(val));
+        return `${num} ${units[u]}`;
     }
 
     _formatDiskCapacity(gb) {
