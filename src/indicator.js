@@ -21,7 +21,6 @@ import { updateNET } from './metrics/net.js';
 import { getTopProcesses } from './metrics/top.js';
 
 const POPUP_MENU_WIDTH = 420;
-const POPUP_MENU_FG = '#FDFDFD';
 const POPUP_MENU_FONT_SIZE = '8pt';
 
 export class RezMonIndicator extends Button {
@@ -80,9 +79,9 @@ export class RezMonIndicator extends Button {
             can_focus: false,
             style_class: 'rezmon-menu-dashboard',
         });
-        this._dashboardItem.set_style(`width: ${POPUP_MENU_WIDTH}px; min-width: ${POPUP_MENU_WIDTH}px; max-width: ${POPUP_MENU_WIDTH}px; color: ${POPUP_MENU_FG}; font-size: ${POPUP_MENU_FONT_SIZE};`);
+        this._dashboardItem.set_style(`width: ${POPUP_MENU_WIDTH}px; min-width: ${POPUP_MENU_WIDTH}px; max-width: ${POPUP_MENU_WIDTH}px; font-size: ${POPUP_MENU_FONT_SIZE};`);
         this._dashboardLabel = new St.Label({
-            style: `padding: 6px 10px; width: ${POPUP_MENU_WIDTH}px; min-width: ${POPUP_MENU_WIDTH}px; max-width: ${POPUP_MENU_WIDTH}px; font-size: ${POPUP_MENU_FONT_SIZE}; line-height: 1.45; color: ${POPUP_MENU_FG};`,
+            style: `padding: 6px 10px; width: ${POPUP_MENU_WIDTH}px; min-width: ${POPUP_MENU_WIDTH}px; max-width: ${POPUP_MENU_WIDTH}px; font-size: ${POPUP_MENU_FONT_SIZE}; line-height: 1.45;`,
         });
         this._dashboardLabel.clutter_text.set_use_markup(true);
         this._dashboardLabel.clutter_text.set_ellipsize(Pango.EllipsizeMode.END);
@@ -92,7 +91,7 @@ export class RezMonIndicator extends Button {
         if (this.menu?.actor)
             this.menu.actor.add_style_class_name('rezmon-popup-menu');
         if (this.menu && this.menu.box) {
-            this.menu.box.set_style(`min-width: ${POPUP_MENU_WIDTH}px; max-width: ${POPUP_MENU_WIDTH}px; color: ${POPUP_MENU_FG}; font-size: ${POPUP_MENU_FONT_SIZE};`);
+            this.menu.box.set_style(`min-width: ${POPUP_MENU_WIDTH}px; max-width: ${POPUP_MENU_WIDTH}px; font-size: ${POPUP_MENU_FONT_SIZE};`);
         }
 
         // 2. Separator
@@ -102,14 +101,14 @@ export class RezMonIndicator extends Button {
         const monitors = this._getAvailableMonitors();
         for (const mon of monitors) {
             const item = new PopupMenuItem(mon.name);
-            item.set_style(`color: ${POPUP_MENU_FG}; font-size: ${POPUP_MENU_FONT_SIZE};`);
+            item.set_style(`font-size: ${POPUP_MENU_FONT_SIZE};`);
             item.connect('activate', () => mon.launch());
             this.menu.addMenuItem(item);
         }
 
         // 4. Open Settings
         const settingsItem = new PopupMenuItem(_("Open Settings"));
-        settingsItem.set_style(`color: ${POPUP_MENU_FG}; font-size: ${POPUP_MENU_FONT_SIZE};`);
+        settingsItem.set_style(`font-size: ${POPUP_MENU_FONT_SIZE};`);
         settingsItem.connect('activate', () => {
             this._extension.openPreferences();
         });
@@ -358,7 +357,7 @@ export class RezMonIndicator extends Button {
             lines.push(`  Fetching active processes…`);
         }
 
-        return `<span foreground="#FDFDFD">${lines.join('\n')}</span>`;
+        return lines.join('\n');
     }
 
     _bindSettings() {
