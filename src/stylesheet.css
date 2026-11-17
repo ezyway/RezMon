@@ -1,0 +1,88 @@
+.rezmon-popup-menu,
+.rezmon-popup-menu .popup-menu-item,
+.rezmon-popup-menu .popup-menu-item StLabel,
+.rezmon-menu-dashboard {
+    font-size: 8pt;
+}
+
+.rezmon-menu-dashboard {
+    padding: 0;
+}
+
+.rezmon-dashboard {
+    spacing: 3px;
+    padding: 6px 0;
+    margin-left: 10px;
+    margin-right: 10px;
+}
+
+.rezmon-dash-row {
+    spacing: 0;
+    min-height: 18px;
+}
+
+.rezmon-dash-left {
+    spacing: 6px;
+}
+
+.rezmon-dash-right {
+    spacing: 6px;
+}
+
+.rezmon-dash-gpu-list {
+    spacing: 3px;
+}
+
+.rezmon-dash-heading {
+    font-weight: bold;
+    padding: 4px 0 2px 0;
+}
+
+.rezmon-dash-subtitle {
+    padding: 2px 0 0 0;
+}
+
+.rezmon-dash-metric {
+    spacing: 1px;
+    padding-top: 4px;
+}
+
+.rezmon-dash-title-row {
+    spacing: 6px;
+}
+
+.rezmon-dash-name {
+    font-weight: bold;
+}
+
+.rezmon-dash-bar {
+    font-family: monospace;
+}
+
+.rezmon-dash-num,
+.rezmon-dash-pct {
+    font-family: monospace;
+    font-feature-settings: "tnum";
+    text-align: right;
+}
+
+.rezmon-dash-pct {
+    min-width: 4.5em;
+}
+
+.rezmon-dash-proc-row {
+    spacing: 6px;
+}
+
+.rezmon-dash-proc-name {
+    font-family: monospace;
+}
+
+.rezmon-dash-sep {
+    opacity: 0.45;
+}
+
+.rezmon-dash-dir {
+    min-width: 1em;
+    text-align: left;
+}

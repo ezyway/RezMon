@@ -44,6 +44,27 @@ msgstr "Mostrar CPU"
 msgid "Show GPU"
 msgstr "Mostrar GPU"
 
+msgid "Display GPUs"
+msgstr "Mostrar GPUs"
+
+msgid "Choose which GPUs appear in the top bar and dropdown"
+msgstr "Elige qué GPUs aparecen en la barra superior y el menú"
+
+msgid "No GPU detected"
+msgstr "No se detectó GPU"
+
+msgid "RezMon could not find a supported NVIDIA, AMD, or Intel GPU."
+msgstr "RezMon no encontró una GPU NVIDIA, AMD o Intel compatible."
+
+msgid "All GPUs"
+msgstr "Todas las GPUs"
+
+msgid "Show every detected GPU"
+msgstr "Mostrar todas las GPUs detectadas"
+
+msgid "Unknown GPU"
+msgstr "GPU desconocida"
+
 msgid "Show RAM"
 msgstr "Mostrar RAM"
 

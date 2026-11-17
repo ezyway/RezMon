@@ -2,38 +2,430 @@
 
 import GLib from 'gi://GLib';
 import Gio from 'gi://Gio';
-import { readFile, readFileLines } from '../utils/file.js';
+import { readFile } from '../utils/file.js';
+
+const DRIVER_VENDOR = {
+    nvidia: 'nvidia',
+    nvidia_drm: 'nvidia',
+    nouveau: 'nvidia',
+    amdgpu: 'amd',
+    radeon: 'amd',
+    i915: 'intel',
+    xe: 'intel',
+};
+
+const GENERIC_NAMES = new Set(['NVIDIA', 'AMD', 'Intel Graphics', 'Unknown GPU']);
 
 let detectedGPUs = null;
+let detectedSignature = null;
+let hasNvidiaSmi = false;
+let cachedNvidiaStats = new Map();
+let isNvidiaQuerying = false;
+
+export function normalizePciId(pci) {
+    if (!pci)
+        return '';
+    const match = String(pci).trim().toLowerCase().match(
+        /([0-9a-f]{4,8}):([0-9a-f]{2}):([0-9a-f]{2})\.([0-9a-f])/
+    );
+    if (!match)
+        return String(pci).trim().toLowerCase();
+    const domain = match[1].slice(-4).padStart(4, '0');
+    return `${domain}:${match[2].padStart(2, '0')}:${match[3].padStart(2, '0')}.${match[4]}`;
+}
+
+export function makeGpuId(pci, drmCard) {
+    const normalized = normalizePciId(pci);
+    if (normalized)
+        return `pci-${normalized}`;
+    if (drmCard)
+        return `drm-${drmCard}`;
+    return 'gpu-unknown';
+}
+
+export function parseLspciMmName(line, vendor) {
+    if (!line)
+        return null;
+
+    const fields = [];
+    const re = /"([^"]*)"/g;
+    let match;
+    while ((match = re.exec(line)) !== null)
+        fields.push(match[1]);
+
+    const device = fields[2] || '';
+    if (!device)
+        return null;
+
+    const bracket = device.match(/\[([^\]]+)\]/);
+    let name = (bracket ? bracket[1] : device).trim();
+    if (!name)
+        return null;
+
+    const prefix = {
+        nvidia: 'NVIDIA',
+        amd: 'AMD',
+        intel: 'Intel',
+    }[vendor];
+
+    if (prefix && !name.toLowerCase().includes(prefix.toLowerCase()))
+        name = `${prefix} ${name}`;
+
+    return name;
+}
+
+export function parseNvidiaSmiOutput(stdout) {
+    if (!stdout)
+        return [];
+
+    const gpus = [];
+    for (const rawLine of stdout.split('\n')) {
+        const line = rawLine.trim();
+        if (!line)
+            continue;
+
+        const parts = line.split(',').map(part => part.trim());
+        if (parts.length < 8)
+            continue;
+
+        const index = parseInt(parts[0], 10);
+        const uuid = parts[1] || '';
+        const pci = normalizePciId(parts[2] || '');
+        const memTotalMib = parseFloat(parts[parts.length - 1]);
+        const memUsedMib = parseFloat(parts[parts.length - 2]);
+        const clockMhz = parseFloat(parts[parts.length - 3]);
+        const temp = parseFloat(parts[parts.length - 4]);
+        const usage = parseFloat(parts[parts.length - 5]);
+        const name = parts.slice(3, parts.length - 5).join(', ').trim();
+
+        const vramUsed = Number.isFinite(memUsedMib) ? memUsedMib / 1024 : null;
+        const vramTotal = Number.isFinite(memTotalMib) ? memTotalMib / 1024 : null;
+        const vramFree = (vramUsed !== null && vramTotal !== null)
+            ? Math.max(0, vramTotal - vramUsed)
+            : null;
+        const vramPercent = (Number.isFinite(memUsedMib) && Number.isFinite(memTotalMib) && memTotalMib > 0)
+            ? (memUsedMib / memTotalMib) * 100
+            : null;
+
+        gpus.push({
+            index: Number.isFinite(index) ? index : null,
+            uuid,
+            pci,
+            name: name || 'NVIDIA',
+            usage: Number.isFinite(usage) ? usage : 0,
+            temp: Number.isFinite(temp) ? temp : null,
+            clock: Number.isFinite(clockMhz) ? clockMhz : null,
+            vramUsed,
+            vramFree,
+            vramPercent,
+        });
+    }
+    return gpus;
+}
+
+export function classifyGpuKind(gpu) {
+    if (!gpu)
+        return 'unknown';
+    if (gpu.vendor === 'nvidia')
+        return 'dedicated';
+    if (gpu.vendor === 'intel')
+        return gpu.hasLmem ? 'dedicated' : 'integrated';
+    if (gpu.vendor === 'amd') {
+        if (gpu.bootVga)
+            return 'integrated';
+        if (gpu.hasDiscreteVram)
+            return 'dedicated';
+        return 'integrated';
+    }
+    return 'unknown';
+}
+
+export function sortGpuDevices(gpus) {
+    return [...gpus].sort((a, b) => {
+        const cardA = cardNumber(a.drmCard);
+        const cardB = cardNumber(b.drmCard);
+        if (cardA !== null && cardB !== null && cardA !== cardB)
+            return cardA - cardB;
+        if (cardA !== null && cardB === null)
+            return -1;
+        if (cardA === null && cardB !== null)
+            return 1;
+        return (a.pci || '').localeCompare(b.pci || '');
+    });
+}
+
+export function filterSelectedGpus(gpus, selectedIds) {
+    if (!Array.isArray(gpus) || gpus.length === 0)
+        return [];
+    if (selectedIds === undefined || selectedIds === null)
+        return [...gpus];
+    if (selectedIds.includes('all'))
+        return [...gpus];
+    const wanted = new Set(selectedIds);
+    return gpus.filter(gpu => wanted.has(gpu.id));
+}
+
+export function migrateGpuSelected(oldDevice, gpus) {
+    if (!oldDevice || oldDevice === 'auto')
+        return ['all'];
+
+    const list = Array.isArray(gpus) ? gpus : [];
+    if (oldDevice === 'dedicated') {
+        const ids = list.filter(gpu => gpu.kind === 'dedicated').map(gpu => gpu.id);
+        return ids.length ? ids : ['all'];
+    }
+    if (oldDevice === 'integrated') {
+        const ids = list.filter(gpu => gpu.kind === 'integrated').map(gpu => gpu.id);
+        return ids.length ? ids : ['all'];
+    }
+    return ['all'];
+}
+
+export function applyGpuSelectionMigration(settings, gpus) {
+    if (!settings)
+        return ['all'];
+
+    try {
+        if (settings.get_boolean('gpu-selected-migrated'))
+            return settings.get_strv('gpu-selected') || ['all'];
+
+        const migrated = migrateGpuSelected(settings.get_string('gpu-device'), gpus);
+        settings.set_strv('gpu-selected', migrated);
+        settings.set_boolean('gpu-selected-migrated', true);
+        return migrated;
+    } catch (_) {
+        try {
+            return settings.get_strv('gpu-selected') || ['all'];
+        } catch {
+            return ['all'];
+        }
+    }
+}
+
+export function invalidateGpuCache() {
+    detectedGPUs = null;
+    detectedSignature = null;
+}
+
+export async function listGPUs({ force = false } = {}) {
+    const signature = listDrmCardNames().join(',');
+    if (force || !detectedGPUs || signature !== detectedSignature) {
+        detectedGPUs = await scanGPUs();
+        detectedSignature = signature;
+    }
+    return detectedGPUs;
+}
+
+export async function updateGPU(state) {
+    const gpus = await listGPUs();
+
+    if (state?._settings)
+        applyGpuSelectionMigration(state._settings, gpus);
+
+    const selectedIds = state?.gpuSelected;
+    const selected = filterSelectedGpus(gpus, selectedIds);
+    if (selected.length === 0)
+        return [];
+
+    const nvidiaGpus = selected.filter(gpu => gpu.vendor === 'nvidia');
+    const otherGpus = selected.filter(gpu => gpu.vendor !== 'nvidia');
+
+    const [nvidiaResults, otherResults] = await Promise.all([
+        queryNvidiaGpus(nvidiaGpus),
+        Promise.all(otherGpus.map(gpu =>
+            queryOneGpu(gpu, state).catch(() => unavailableGpu(gpu))
+        )),
+    ]);
+
+    const byId = new Map();
+    for (const result of nvidiaResults)
+        byId.set(result.id, result);
+    for (const result of otherResults)
+        byId.set(result.id, result);
+
+    return selected.map(gpu => byId.get(gpu.id) || unavailableGpu(gpu));
+}
+
+function cardNumber(drmCard) {
+    if (!drmCard)
+        return null;
+    const match = String(drmCard).match(/^card(\d+)$/);
+    return match ? parseInt(match[1], 10) : null;
+}
+
+function listDirectoryNames(path) {
+    const dir = Gio.File.new_for_path(path);
+    if (!dir.query_exists(null))
+        return [];
+
+    const names = [];
+    let enumerator = null;
+    try {
+        enumerator = dir.enumerate_children(
+            'standard::name',
+            Gio.FileQueryInfoFlags.NONE,
+            null
+        );
+        let info;
+        while ((info = enumerator.next_file(null)) !== null)
+            names.push(info.get_name());
+    } catch (_) {
+    } finally {
+        if (enumerator) {
+            try { enumerator.close(null); } catch (_) {}
+        }
+    }
+    return names;
+}
+
+function listDrmCardNames() {
+    return listDirectoryNames('/sys/class/drm')
+        .filter(name => /^card\d+$/.test(name))
+        .sort((a, b) => cardNumber(a) - cardNumber(b));
+}
+
+function parseUevent(text) {
+    const result = { driver: '', pciSlot: '', pciId: '' };
+    if (!text)
+        return result;
+
+    for (const line of text.split('\n')) {
+        if (line.startsWith('DRIVER='))
+            result.driver = line.slice(7).trim().toLowerCase();
+        else if (line.startsWith('PCI_SLOT_NAME='))
+            result.pciSlot = line.slice(14).trim();
+        else if (line.startsWith('PCI_ID='))
+            result.pciId = line.slice(7).trim();
+    }
+    return result;
+}
+
+function fallbackName(vendor) {
+    if (vendor === 'nvidia')
+        return 'NVIDIA';
+    if (vendor === 'amd')
+        return 'AMD';
+    if (vendor === 'intel')
+        return 'Intel Graphics';
+    return 'Unknown GPU';
+}
+
+function isGenericName(name) {
+    return !name || GENERIC_NAMES.has(name);
+}
+
+function readLspciName(pci, vendor) {
+    if (!pci)
+        return null;
+    const lspci = GLib.find_program_in_path('lspci');
+    if (!lspci)
+        return null;
+
+    try {
+        const proc = new Gio.Subprocess({
+            argv: [lspci, '-mm', '-s', pci],
+            flags: Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_SILENCE,
+        });
+        proc.init(null);
+        const [, stdout] = proc.communicate_utf8(null, null);
+        return parseLspciMmName(stdout, vendor);
+    } catch (_) {
+        return null;
+    }
+}
+
+async function readNvidiaProcName(pci) {
+    if (!pci)
+        return null;
+    const info = await readFile(`/proc/driver/nvidia/gpus/${pci}/information`);
+    if (!info)
+        return null;
+    const match = info.match(/^Model:\s*(.+)$/m);
+    return match ? match[1].trim() : null;
+}
+
+function finalizeGpuList(gpus) {
+    const sorted = sortGpuDevices(gpus);
+    sorted.forEach((gpu, index) => {
+        gpu.index = index;
+        gpu.kind = classifyGpuKind(gpu);
+        if (isGenericName(gpu.name)) {
+            const pretty = readLspciName(gpu.pci, gpu.vendor);
+            if (pretty)
+                gpu.name = pretty;
+        }
+        if (!gpu.name)
+            gpu.name = fallbackName(gpu.vendor);
+    });
+    return sorted;
+}
+
+function identity(gpu) {
+    return {
+        id: gpu.id,
+        index: gpu.index,
+        name: gpu.name,
+        vendor: gpu.vendor,
+        driver: gpu.driver,
+        devicePath: gpu.devicePath,
+        drmCard: gpu.drmCard,
+    };
+}
+
+function sleepingGpu(gpu) {
+    return {
+        ...identity(gpu),
+        sleeping: true,
+        unavailable: false,
+        usage: 0,
+        clock: 0,
+        temp: null,
+        vramUsed: 0,
+        vramFree: 0,
+        vramPercent: 0,
+        vramKind: gpu.vendor === 'nvidia' || gpu.hasDiscreteVram || gpu.hasLmem ? 'dedicated' : 'shared',
+    };
+}
+
+function unavailableGpu(gpu) {
+    return {
+        ...identity(gpu),
+        sleeping: false,
+        unavailable: true,
+        usage: null,
+        clock: null,
+        temp: null,
+        vramUsed: null,
+        vramFree: null,
+        vramPercent: null,
+        vramKind: null,
+    };
+}
 
 async function getSharedVram() {
     let memTotalKb = 0;
     let shmemKb = 0;
 
-    const lines = await readFileLines('/proc/meminfo');
-    for (const line of lines) {
-        if (line.startsWith('MemTotal:')) {
-            memTotalKb = parseInt(line.split(/\s+/)[1], 10) || 0;
-        } else if (line.startsWith('Shmem:')) {
-            shmemKb = parseInt(line.split(/\s+/)[1], 10) || 0;
+    const content = await readFile('/proc/meminfo');
+    if (content) {
+        for (const line of content.split('\n')) {
+            if (line.startsWith('MemTotal:'))
+                memTotalKb = parseInt(line.split(/\s+/)[1], 10) || 0;
+            else if (line.startsWith('Shmem:'))
+                shmemKb = parseInt(line.split(/\s+/)[1], 10) || 0;
+            if (memTotalKb > 0 && shmemKb > 0)
+                break;
         }
-        if (memTotalKb > 0 && shmemKb > 0) break;
     }
 
     if (memTotalKb > 0) {
-        // In Linux UMA graphics, DRM GEM memory is capped at 50% of system RAM
         const totalKb = memTotalKb / 2;
         const usedKb = shmemKb;
         const freeKb = Math.max(0, totalKb - usedKb);
-
-        const vramUsed = usedKb / (1024 * 1024);
-        const vramFree = freeKb / (1024 * 1024);
-        const vramPercent = totalKb > 0 ? (usedKb / totalKb) * 100 : 0;
-
         return {
-            vramUsed,
-            vramFree,
-            vramPercent,
+            vramUsed: usedKb / (1024 * 1024),
+            vramFree: freeKb / (1024 * 1024),
+            vramPercent: totalKb > 0 ? (usedKb / totalKb) * 100 : 0,
         };
     }
 
@@ -44,416 +436,436 @@ async function getSharedVram() {
     };
 }
 
-async function scanGPUs() {
-    if (detectedGPUs) return detectedGPUs;
+async function readHwmonTemp(hwmonPath) {
+    const names = listDirectoryNames(hwmonPath);
+    for (const hName of names) {
+        const tempFile = await readFile(`${hwmonPath}/${hName}/temp1_input`);
+        if (!tempFile)
+            continue;
+        const raw = parseFloat(tempFile.trim());
+        if (Number.isFinite(raw))
+            return raw / 1000;
+    }
+    return null;
+}
 
-    let nvidiaCard = null;
-    let amdCard = null;
-    let intelCard = null;
+async function scanOneDrmCard(cardName) {
+    const drmPath = `/sys/class/drm/${cardName}`;
+    const devicePath = `${drmPath}/device`;
+    const uevent = parseUevent(await readFile(`${devicePath}/uevent`));
+    const vendor = DRIVER_VENDOR[uevent.driver];
+    if (!vendor)
+        return null;
 
-    const drmDir = Gio.File.new_for_path('/sys/class/drm');
-    if (drmDir.query_exists(null)) {
-        let enumerator = null;
-        try {
-            enumerator = drmDir.enumerate_children(
-                'standard::name',
-                Gio.FileQueryInfoFlags.NONE,
-                null
-            );
-            let info;
-            while ((info = enumerator.next_file(null)) !== null) {
-                const name = info.get_name();
-                if (/^card\d+$/.test(name)) {
-                    const devPath = `/sys/class/drm/${name}/device`;
-                    const uevent = await readFile(`${devPath}/uevent`);
-                    let driver = '';
-                    if (uevent) {
-                        for (const line of uevent.split('\n')) {
-                            if (line.startsWith('DRIVER=')) {
-                                driver = line.split('=')[1].trim().toLowerCase();
-                            }
-                        }
-                    }
+    const pci = normalizePciId(uevent.pciSlot);
+    const bootVgaText = await readFile(`${devicePath}/boot_vga`);
+    const lmemTotal = await readFile(`${devicePath}/lmem_total_bytes`);
+    const vramTotal = await readFile(`${devicePath}/mem_info_vram_total`);
 
-                    if (driver === 'nvidia') {
-                        nvidiaCard = { name, path: `/sys/class/drm/${name}`, devPath, driver };
-                    } else if (driver === 'amdgpu') {
-                        amdCard = { name, path: `/sys/class/drm/${name}`, devPath, driver };
-                    } else if (driver === 'i915' || driver === 'xe') {
-                        intelCard = { name, path: `/sys/class/drm/${name}`, devPath, driver };
-                    }
-                }
-            }
-        } catch (e) {
-        } finally {
-            if (enumerator) {
-                try { enumerator.close(null); } catch (_) {}
-            }
-        }
+    const gpu = {
+        id: makeGpuId(pci, cardName),
+        index: 0,
+        name: fallbackName(vendor),
+        vendor,
+        driver: uevent.driver,
+        devicePath,
+        drmCard: cardName,
+        drmPath,
+        pci,
+        kind: 'unknown',
+        bootVga: bootVgaText ? bootVgaText.trim() === '1' : false,
+        hasLmem: !!(lmemTotal && parseFloat(lmemTotal.trim()) > 0),
+        hasDiscreteVram: !!(vramTotal && parseFloat(vramTotal.trim()) > 256 * 1024 * 1024),
+    };
+
+    if (vendor === 'nvidia') {
+        const procName = await readNvidiaProcName(pci);
+        if (procName)
+            gpu.name = procName;
+    } else {
+        const product = await readFile(`${devicePath}/product_name`);
+        if (product && product.trim())
+            gpu.name = product.trim();
     }
 
-    const hasNvidiaSmi = GLib.find_program_in_path('nvidia-smi') !== null;
+    return gpu;
+}
 
-    // Fallback detection for NVIDIA PCI device if not enumerated in DRM card list
-    if (!nvidiaCard && hasNvidiaSmi) {
-        const pciDir = Gio.File.new_for_path('/sys/bus/pci/drivers/nvidia');
-        if (pciDir.query_exists(null)) {
-            let enumerator = null;
+async function scanNvidiaPciFallbacks(existing) {
+    const extras = [];
+    const known = new Set(existing.map(gpu => gpu.id));
+    const names = listDirectoryNames('/sys/bus/pci/drivers/nvidia');
+
+    for (const name of names) {
+        if (!/^[0-9a-fA-F]{4}:/.test(name))
+            continue;
+
+        const pci = normalizePciId(name);
+        const id = makeGpuId(pci, null);
+        if (!pci || known.has(id))
+            continue;
+
+        const devicePath = `/sys/bus/pci/drivers/nvidia/${name}`;
+        const gpu = {
+            id,
+            index: 0,
+            name: 'NVIDIA',
+            vendor: 'nvidia',
+            driver: 'nvidia',
+            devicePath,
+            drmCard: null,
+            drmPath: null,
+            pci,
+            kind: 'dedicated',
+            bootVga: false,
+            hasLmem: false,
+            hasDiscreteVram: true,
+        };
+
+        const procName = await readNvidiaProcName(pci);
+        if (procName)
+            gpu.name = procName;
+
+        extras.push(gpu);
+        known.add(id);
+    }
+
+    return extras;
+}
+
+async function scanGPUs() {
+    hasNvidiaSmi = GLib.find_program_in_path('nvidia-smi') !== null;
+
+    const cardNames = listDrmCardNames();
+    const scanned = await Promise.all(cardNames.map(name =>
+        scanOneDrmCard(name).catch(() => null)
+    ));
+    const gpus = scanned.filter(Boolean);
+    const extras = await scanNvidiaPciFallbacks(gpus);
+    return finalizeGpuList(gpus.concat(extras));
+}
+
+async function isRuntimeSuspended(devicePath) {
+    if (!devicePath)
+        return false;
+    const runtimeStatus = await readFile(`${devicePath}/power/runtime_status`);
+    return !!(runtimeStatus && runtimeStatus.trim().toLowerCase() === 'suspended');
+}
+
+function scheduleNvidiaBatch(gpus) {
+    if (isNvidiaQuerying || gpus.length === 0)
+        return;
+
+    if (!hasNvidiaSmi) {
+        hasNvidiaSmi = GLib.find_program_in_path('nvidia-smi') !== null;
+        if (!hasNvidiaSmi)
+            return;
+    }
+
+    isNvidiaQuerying = true;
+
+    const argv = [
+        'nvidia-smi',
+        '--query-gpu=index,uuid,pci.bus_id,name,utilization.gpu,temperature.gpu,clocks.current.graphics,memory.used,memory.total',
+        '--format=csv,noheader,nounits',
+    ];
+
+    const pciIds = gpus.map(gpu => gpu.pci).filter(Boolean);
+    if (pciIds.length)
+        argv.splice(1, 0, `-i`, pciIds.join(','));
+
+    try {
+        const proc = new Gio.Subprocess({
+            argv,
+            flags: Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_SILENCE,
+        });
+        proc.init(null);
+        proc.communicate_utf8_async(null, null, (procInner, res) => {
             try {
-                enumerator = pciDir.enumerate_children('standard::name', Gio.FileQueryInfoFlags.NONE, null);
-                let info;
-                while ((info = enumerator.next_file(null)) !== null) {
-                    const name = info.get_name();
-                    if (/^[0-9a-fA-F]{4}:/.test(name)) {
-                        nvidiaCard = { name, devPath: `/sys/bus/pci/drivers/nvidia/${name}`, driver: 'nvidia' };
-                        break;
+                const [, stdout] = procInner.communicate_utf8_finish(res);
+                const parsed = parseNvidiaSmiOutput(stdout || '');
+                const seen = new Set();
+
+                for (const row of parsed) {
+                    const id = makeGpuId(row.pci, null);
+                    seen.add(id);
+                    cachedNvidiaStats.set(id, {
+                        sleeping: false,
+                        unavailable: false,
+                        name: row.name,
+                        usage: row.usage,
+                        temp: row.temp,
+                        clock: row.clock,
+                        vramUsed: row.vramUsed,
+                        vramFree: row.vramFree,
+                        vramPercent: row.vramPercent,
+                        vramKind: 'dedicated',
+                    });
+
+                    if (detectedGPUs) {
+                        const device = detectedGPUs.find(gpu => gpu.id === id);
+                        if (device && row.name)
+                            device.name = row.name;
+                    }
+                }
+
+                for (const gpu of gpus) {
+                    if (!seen.has(gpu.id) && !cachedNvidiaStats.has(gpu.id)) {
+                        cachedNvidiaStats.set(gpu.id, {
+                            sleeping: false,
+                            unavailable: true,
+                            usage: null,
+                            temp: null,
+                            clock: null,
+                            vramUsed: null,
+                            vramFree: null,
+                            vramPercent: null,
+                            vramKind: 'dedicated',
+                        });
                     }
                 }
             } catch (_) {
             } finally {
-                if (enumerator) {
-                    try { enumerator.close(null); } catch (_) {}
-                }
+                isNvidiaQuerying = false;
             }
-        }
+        });
+    } catch (_) {
+        isNvidiaQuerying = false;
     }
-
-    detectedGPUs = {
-        nvidia: nvidiaCard || (hasNvidiaSmi ? { driver: 'nvidia' } : null),
-        amd: amdCard,
-        intel: intelCard,
-        hasNvidiaSmi,
-    };
-
-    return detectedGPUs;
 }
 
-let cachedNvidiaStats = null;
-let isNvidiaQuerying = false;
+async function queryNvidiaGpus(gpus) {
+    if (!gpus.length)
+        return [];
 
-async function queryNvidia(gpus) {
-    if (!gpus.nvidia) return null;
+    const results = [];
+    const awake = [];
 
-    // Check runtime power status to avoid waking sleeping dGPU on battery
-    if (gpus.nvidia.devPath) {
-        const runtimeStatus = await readFile(`${gpus.nvidia.devPath}/power/runtime_status`);
-        if (runtimeStatus && runtimeStatus.trim().toLowerCase() === 'suspended') {
-            return {
-                sleeping: true,
-                name: 'NVIDIA',
-                usage: 0,
-                clock: 0,
-                temp: null,
-                vramUsed: 0,
-                vramFree: 0,
-                vramPercent: 0,
-            };
-        }
-    }
-
-    if (!gpus.hasNvidiaSmi) return null;
-
-    // Spawn non-blocking async query if not already in flight
-    if (!isNvidiaQuerying) {
-        isNvidiaQuerying = true;
+    await Promise.all(gpus.map(async gpu => {
         try {
-            const proc = new Gio.Subprocess({
-                argv: [
-                    'nvidia-smi',
-                    '--query-gpu=utilization.gpu,temperature.gpu,clocks.current.graphics,memory.used,memory.total',
-                    '--format=csv,noheader,nounits'
-                ],
-                flags: Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_SILENCE,
-            });
-
-            proc.init(null);
-            proc.communicate_utf8_async(null, null, (proc, res) => {
-                try {
-                    const [, stdout] = proc.communicate_utf8_finish(res);
-                    if (stdout) {
-                        const parts = stdout.trim().split(',').map(s => s.trim());
-                        if (parts.length >= 5) {
-                            const usage = parseFloat(parts[0]);
-                            const temp = parseFloat(parts[1]);
-                            const clockMhz = parseFloat(parts[2]);
-                            const memUsedMib = parseFloat(parts[3]);
-                            const memTotalMib = parseFloat(parts[4]);
-
-                            const vramUsedG = memUsedMib / 1024;
-                            const vramTotalG = memTotalMib / 1024;
-                            const vramFreeG = Math.max(0, vramTotalG - vramUsedG);
-                            const vramPercent = memTotalMib > 0 ? (memUsedMib / memTotalMib) * 100 : 0;
-
-                            cachedNvidiaStats = {
-                                sleeping: false,
-                                name: 'NVIDIA',
-                                usage: Number.isFinite(usage) ? usage : 0,
-                                temp: Number.isFinite(temp) ? temp : null,
-                                clock: Number.isFinite(clockMhz) ? clockMhz : null,
-                                vramUsed: Number.isFinite(vramUsedG) ? vramUsedG : null,
-                                vramFree: Number.isFinite(vramFreeG) ? vramFreeG : null,
-                                vramPercent: Number.isFinite(vramPercent) ? vramPercent : null,
-                            };
-                        }
-                    }
-                } catch (_) {
-                } finally {
-                    isNvidiaQuerying = false;
-                }
-            });
+            if (await isRuntimeSuspended(gpu.devicePath)) {
+                results.push(sleepingGpu(gpu));
+                return;
+            }
+            awake.push(gpu);
         } catch (_) {
-            isNvidiaQuerying = false;
+            results.push(unavailableGpu(gpu));
         }
+    }));
+
+    if (!awake.length)
+        return results;
+
+    if (!hasNvidiaSmi && GLib.find_program_in_path('nvidia-smi') === null) {
+        return results.concat(awake.map(unavailableGpu));
+    }
+    hasNvidiaSmi = true;
+
+    scheduleNvidiaBatch(awake);
+
+    for (const gpu of awake) {
+        const cached = cachedNvidiaStats.get(gpu.id);
+        results.push({
+            ...identity(gpu),
+            sleeping: false,
+            unavailable: false,
+            usage: 0,
+            clock: null,
+            temp: null,
+            vramUsed: null,
+            vramFree: null,
+            vramPercent: null,
+            vramKind: 'dedicated',
+            ...(cached || {}),
+            id: gpu.id,
+            index: gpu.index,
+            vendor: gpu.vendor,
+            driver: gpu.driver,
+        });
     }
 
-    return cachedNvidiaStats || {
-        sleeping: false,
-        name: 'NVIDIA',
-        usage: 0,
-        clock: null,
-        temp: null,
-        vramUsed: null,
-        vramFree: null,
-        vramPercent: null,
-    };
+    return results;
 }
 
-async function queryAmd(gpus) {
-    if (!gpus.amd) return null;
-    const dev = gpus.amd.devPath;
-    const path = gpus.amd.path;
+async function queryOneGpu(gpu, state) {
+    if (gpu.vendor === 'amd')
+        return await queryAmd(gpu);
+    if (gpu.vendor === 'intel')
+        return await queryIntel(gpu, state);
+    return unavailableGpu(gpu);
+}
 
-    // Check runtime power status first, so we don't wake a suspended dGPU
-    if (dev) {
-        const runtimeStatus = await readFile(`${dev}/power/runtime_status`);
-        if (runtimeStatus && runtimeStatus.trim().toLowerCase() === 'suspended') {
-            return {
-                sleeping: true,
-                name: 'AMD',
-                usage: 0,
-                clock: 0,
-                temp: null,
-                vramUsed: 0,
-                vramFree: 0,
-                vramPercent: 0,
-            };
-        }
-    }
+async function queryAmd(gpu) {
+    const devicePath = gpu.devicePath;
+    const drmPath = gpu.drmPath;
 
-    let usage = null;
-    let busy = dev ? await readFile(`${dev}/gpu_busy_percent`) : null;
-    if (!busy && path) {
-        busy = await readFile(`${path}/gpu_busy_percent`);
-    }
+    if (await isRuntimeSuspended(devicePath))
+        return sleepingGpu(gpu);
+
+    let usage = 0;
+    let busy = devicePath ? await readFile(`${devicePath}/gpu_busy_percent`) : null;
+    if (!busy && drmPath)
+        busy = await readFile(`${drmPath}/gpu_busy_percent`);
     if (busy) {
-        const val = parseFloat(busy.trim());
-        if (Number.isFinite(val)) usage = Math.min(100, Math.max(0, val));
+        const value = parseFloat(busy.trim());
+        if (Number.isFinite(value))
+            usage = Math.min(100, Math.max(0, value));
     }
-    if (usage === null) usage = 0;
 
     let clock = null;
-    let clk = dev ? await readFile(`${dev}/current_gfxclk`) : null;
-    if (!clk && path) {
-        clk = await readFile(`${path}/current_gfxclk`);
-    }
+    let clk = devicePath ? await readFile(`${devicePath}/current_gfxclk`) : null;
+    if (!clk && drmPath)
+        clk = await readFile(`${drmPath}/current_gfxclk`);
     if (clk) {
-        const val = parseFloat(clk.trim());
-        if (Number.isFinite(val)) clock = val;
+        const value = parseFloat(clk.trim());
+        if (Number.isFinite(value))
+            clock = value;
     }
 
     let temp = null;
-    const hwmonPath = dev ? `${dev}/hwmon` : `${path}/hwmon`;
-    const hwmonDir = Gio.File.new_for_path(hwmonPath);
-    if (hwmonDir.query_exists(null)) {
-        let enumerator = null;
-        try {
-            enumerator = hwmonDir.enumerate_children('standard::name', Gio.FileQueryInfoFlags.NONE, null);
-            let info;
-            while ((info = enumerator.next_file(null)) !== null) {
-                const hName = info.get_name();
-                const tempFile = await readFile(`${hwmonPath}/${hName}/temp1_input`);
-                if (tempFile) {
-                    const raw = parseFloat(tempFile.trim());
-                    if (Number.isFinite(raw)) {
-                        temp = raw / 1000;
-                        break;
-                    }
-                }
-            }
-        } catch (e) {
-        } finally {
-            if (enumerator) {
-                try { enumerator.close(null); } catch (_) {}
-            }
-        }
-    }
+    if (devicePath)
+        temp = await readHwmonTemp(`${devicePath}/hwmon`);
+    if (temp === null && drmPath)
+        temp = await readHwmonTemp(`${drmPath}/hwmon`);
 
     let vramUsed = null;
     let vramFree = null;
     let vramPercent = null;
-    const usedBytes = dev ? await readFile(`${dev}/mem_info_vram_used`) : null;
-    const totalBytes = dev ? await readFile(`${dev}/mem_info_vram_total`) : null;
+    let vramKind = 'shared';
+
+    const usedBytes = devicePath ? await readFile(`${devicePath}/mem_info_vram_used`) : null;
+    const totalBytes = devicePath ? await readFile(`${devicePath}/mem_info_vram_total`) : null;
     if (usedBytes && totalBytes) {
-        const u = parseFloat(usedBytes.trim());
-        const t = parseFloat(totalBytes.trim());
-        if (Number.isFinite(u) && Number.isFinite(t) && t > 0) {
-            vramUsed = u / (1024 * 1024 * 1024);
-            const totalG = t / (1024 * 1024 * 1024);
+        const used = parseFloat(usedBytes.trim());
+        const total = parseFloat(totalBytes.trim());
+        if (Number.isFinite(used) && Number.isFinite(total) && total > 0) {
+            vramUsed = used / (1024 * 1024 * 1024);
+            const totalG = total / (1024 * 1024 * 1024);
             vramFree = Math.max(0, totalG - vramUsed);
-            vramPercent = (u / t) * 100;
+            vramPercent = (used / total) * 100;
+            vramKind = 'dedicated';
         }
-    } else {
+    }
+
+    if (vramUsed === null) {
         const shared = await getSharedVram();
         vramUsed = shared.vramUsed;
         vramFree = shared.vramFree;
         vramPercent = shared.vramPercent;
+        vramKind = 'shared';
     }
 
     return {
+        ...identity(gpu),
         sleeping: false,
-        name: 'AMD',
+        unavailable: false,
         usage,
         clock,
         temp,
         vramUsed,
         vramFree,
         vramPercent,
+        vramKind,
     };
 }
 
-async function queryIntel(gpus, state) {
-    if (!gpus.intel) return null;
-    const path = gpus.intel.path;
-    const devPath = gpus.intel.devPath;
+function intelCounterState(state, id) {
+    if (!state)
+        return { prevRc6: undefined, prevTime: undefined };
+    if (!state._intelGpuState)
+        state._intelGpuState = {};
+    if (!state._intelGpuState[id])
+        state._intelGpuState[id] = { prevRc6: undefined, prevTime: undefined };
+    return state._intelGpuState[id];
+}
+
+async function queryIntel(gpu, state) {
+    const drmPath = gpu.drmPath;
+    const devicePath = gpu.devicePath;
 
     let clock = null;
-    let curFreq = path ? await readFile(`${path}/gt_act_freq_mhz`) : null;
-    if (!curFreq && path) curFreq = await readFile(`${path}/gt_cur_freq_mhz`);
-    if (!curFreq && devPath) curFreq = await readFile(`${devPath}/gt_act_freq_mhz`);
+    let curFreq = drmPath ? await readFile(`${drmPath}/gt_act_freq_mhz`) : null;
+    if (!curFreq && drmPath)
+        curFreq = await readFile(`${drmPath}/gt_cur_freq_mhz`);
+    if (!curFreq && devicePath)
+        curFreq = await readFile(`${devicePath}/gt_act_freq_mhz`);
     if (curFreq) {
         const mhz = parseFloat(curFreq.trim());
-        if (Number.isFinite(mhz)) clock = mhz;
+        if (Number.isFinite(mhz))
+            clock = mhz;
     }
 
-    let usage = null;
-    let rc6File = path ? await readFile(`${path}/power/rc6_residency_ms`) : null;
-    if (!rc6File && path) rc6File = await readFile(`${path}/gt/gt0/rc6_residency_ms`);
-    if (!rc6File && devPath) rc6File = await readFile(`${devPath}/power/rc6_residency_ms`);
+    let usage = 0;
+    let rc6File = drmPath ? await readFile(`${drmPath}/power/rc6_residency_ms`) : null;
+    if (!rc6File && drmPath)
+        rc6File = await readFile(`${drmPath}/gt/gt0/rc6_residency_ms`);
+    if (!rc6File && devicePath)
+        rc6File = await readFile(`${devicePath}/power/rc6_residency_ms`);
+
     const now = GLib.get_monotonic_time() / 1000;
+    const counters = intelCounterState(state, gpu.id);
     if (rc6File) {
         const rc6 = parseInt(rc6File.trim(), 10);
         if (Number.isFinite(rc6)) {
-            if (state.prev_intel_rc6 !== undefined && state.prev_intel_time) {
-                const dt = now - state.prev_intel_time;
-                const dRc6 = rc6 - state.prev_intel_rc6;
+            if (counters.prevRc6 !== undefined && counters.prevTime) {
+                const dt = now - counters.prevTime;
+                const dRc6 = rc6 - counters.prevRc6;
                 if (dt > 0 && dRc6 >= 0) {
                     const activeMs = Math.max(0, dt - dRc6);
                     usage = Math.min(100, Math.max(0, (activeMs / dt) * 100));
                 }
-            } else {
-                usage = 0;
             }
-            state.prev_intel_rc6 = rc6;
-            state.prev_intel_time = now;
+            counters.prevRc6 = rc6;
+            counters.prevTime = now;
         }
     }
-    if (usage === null) usage = 0;
 
     let temp = null;
-    if (devPath) {
-        const hwmonDir = Gio.File.new_for_path(`${devPath}/hwmon`);
-        if (hwmonDir.query_exists(null)) {
-            let enumerator = null;
-            try {
-                enumerator = hwmonDir.enumerate_children('standard::name', Gio.FileQueryInfoFlags.NONE, null);
-                let info;
-                while ((info = enumerator.next_file(null)) !== null) {
-                    const hName = info.get_name();
-                    const tempFile = await readFile(`${devPath}/hwmon/${hName}/temp1_input`);
-                    if (tempFile) {
-                        const raw = parseFloat(tempFile.trim());
-                        if (Number.isFinite(raw)) {
-                            temp = raw / 1000;
-                            break;
-                        }
-                    }
-                }
-            } catch (e) {
-            } finally {
-                if (enumerator) {
-                    try { enumerator.close(null); } catch (_) {}
-                }
-            }
-        }
-    }
+    if (devicePath)
+        temp = await readHwmonTemp(`${devicePath}/hwmon`);
 
     let vramUsed = null;
     let vramFree = null;
     let vramPercent = null;
-    let lmemTotal = devPath ? await readFile(`${devPath}/lmem_total_bytes`) : null;
-    if (!lmemTotal && path) lmemTotal = await readFile(`${path}/lmem_total_bytes`);
-    let lmemAvail = devPath ? await readFile(`${devPath}/lmem_avail_bytes`) : null;
-    if (!lmemAvail && path) lmemAvail = await readFile(`${path}/lmem_avail_bytes`);
+    let vramKind = 'shared';
+
+    let lmemTotal = devicePath ? await readFile(`${devicePath}/lmem_total_bytes`) : null;
+    if (!lmemTotal && drmPath)
+        lmemTotal = await readFile(`${drmPath}/lmem_total_bytes`);
+    let lmemAvail = devicePath ? await readFile(`${devicePath}/lmem_avail_bytes`) : null;
+    if (!lmemAvail && drmPath)
+        lmemAvail = await readFile(`${drmPath}/lmem_avail_bytes`);
 
     if (lmemTotal && lmemAvail) {
-        const t = parseFloat(lmemTotal.trim());
-        const a = parseFloat(lmemAvail.trim());
-        if (Number.isFinite(t) && Number.isFinite(a) && t > 0) {
-            const u = Math.max(0, t - a);
-            vramUsed = u / (1024 * 1024 * 1024);
-            vramFree = a / (1024 * 1024 * 1024);
-            vramPercent = (u / t) * 100;
+        const total = parseFloat(lmemTotal.trim());
+        const avail = parseFloat(lmemAvail.trim());
+        if (Number.isFinite(total) && Number.isFinite(avail) && total > 0) {
+            const used = Math.max(0, total - avail);
+            vramUsed = used / (1024 * 1024 * 1024);
+            vramFree = avail / (1024 * 1024 * 1024);
+            vramPercent = (used / total) * 100;
+            vramKind = 'dedicated';
         }
-    } else {
+    }
+
+    if (vramUsed === null) {
         const shared = await getSharedVram();
         vramUsed = shared.vramUsed;
         vramFree = shared.vramFree;
         vramPercent = shared.vramPercent;
+        vramKind = 'shared';
     }
 
     return {
+        ...identity(gpu),
         sleeping: false,
-        name: 'Intel',
+        unavailable: false,
         usage,
         clock,
         temp,
         vramUsed,
         vramFree,
         vramPercent,
+        vramKind,
     };
-}
-
-export async function updateGPU(state) {
-    const gpus = await scanGPUs();
-    const mode = state.gpuDevice || 'auto';
-
-    if (mode === 'integrated') {
-        if (gpus.intel) return await queryIntel(gpus, state);
-        if (gpus.amd) return await queryAmd(gpus);
-        return null;
-    }
-
-    if (mode === 'dedicated') {
-        if (gpus.nvidia) return await queryNvidia(gpus);
-        if (gpus.amd) return await queryAmd(gpus);
-        return null;
-    }
-
-    // Auto mode: prefer the dedicated GPU. If it is sleeping, report the
-    // sleep state instead of silently falling back to the integrated GPU.
-    if (gpus.nvidia) {
-        const dgpu = await queryNvidia(gpus);
-        if (dgpu) return dgpu;
-    }
-
-    if (gpus.amd) {
-        const dgpu = await queryAmd(gpus);
-        if (dgpu) return dgpu;
-    }
-
-    if (gpus.intel) {
-        return await queryIntel(gpus, state);
-    }
-
-    return null;
 }

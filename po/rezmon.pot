@@ -1,19 +1,11 @@
-# RezMon GNOME Shell Extension.
-# Copyright (C) 2026 AZZlOl
-# This file is distributed under the same license as the RezMon package.
-#
+# RezMon POT
 msgid ""
 msgstr ""
-"Project-Id-Version: rezmon\n"
-"Report-Msgid-Bugs-To: https://github.com/ezyway/RezMon\n"
-"POT-Creation-Date: 2026-11-08 18:30+0530\n"
-"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
-"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language-Team: LANGUAGE <LL@li.org>\n"
-"Language: \n"
-"MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=UTF-8\n"
-"Content-Transfer-Encoding: 8bit\n"
+"Content-Type: text/plain; charset=UTF-8
+"
+
+msgid "(Custom Symbol)"
+msgstr ""
 
 msgid "(Offline)"
 msgstr ""
@@ -21,13 +13,13 @@ msgstr ""
 msgid "Alert Thresholds"
 msgstr ""
 
+msgid "All GPUs"
+msgstr ""
+
 msgid "Appearance"
 msgstr ""
 
 msgid "Appearance Settings"
-msgstr ""
-
-msgid "Auto (Dedicated when Active)"
 msgstr ""
 
 msgid "Auto (Default Route)"
@@ -37,6 +29,9 @@ msgid "Brackets"
 msgstr ""
 
 msgid "CPU"
+msgstr ""
+
+msgid "CPU Icon"
 msgstr ""
 
 msgid "CPU Settings"
@@ -51,16 +46,22 @@ msgstr ""
 msgid "Center (Default)"
 msgstr ""
 
+msgid "Choose which GPUs appear in the top bar and dropdown"
+msgstr ""
+
 msgid "Clock"
 msgstr ""
 
 msgid "Clock Position"
 msgstr ""
 
+msgid "Custom Metric Icons / Symbols"
+msgstr ""
+
 msgid "Customize positions on the top status bar"
 msgstr ""
 
-msgid "Dedicated GPU"
+msgid "Custom…"
 msgstr ""
 
 msgid "Delimiter"
@@ -69,7 +70,13 @@ msgstr ""
 msgid "Disk"
 msgstr ""
 
+msgid "Disk Icon"
+msgstr ""
+
 msgid "Disk Settings"
+msgstr ""
+
+msgid "Display GPUs"
 msgstr ""
 
 msgid "Download"
@@ -81,22 +88,22 @@ msgstr ""
 msgid "Free"
 msgstr ""
 
+msgid "Free %"
+msgstr ""
+
 msgid "GNOME System Monitor"
 msgstr ""
 
 msgid "GPU"
 msgstr ""
 
-msgid "GPU Device"
+msgid "GPU Icon"
 msgstr ""
 
 msgid "GPU Settings"
 msgstr ""
 
 msgid "General"
-msgstr ""
-
-msgid "Integrated GPU"
 msgstr ""
 
 msgid "Label Style"
@@ -126,7 +133,13 @@ msgstr ""
 msgid "Network"
 msgstr ""
 
+msgid "Network Icon"
+msgstr ""
+
 msgid "Network Settings"
+msgstr ""
+
+msgid "No GPU detected"
 msgstr ""
 
 msgid "None (Compact)"
@@ -147,10 +160,10 @@ msgstr ""
 msgid "Panel Position"
 msgstr ""
 
-msgid "Percent"
+msgid "RAM"
 msgstr ""
 
-msgid "RAM"
+msgid "RAM Icon"
 msgstr ""
 
 msgid "RAM Settings"
@@ -165,10 +178,19 @@ msgstr ""
 msgid "Reset"
 msgstr ""
 
+msgid "Reset Icons to Defaults"
+msgstr ""
+
 msgid "Reset to Default Order"
 msgstr ""
 
 msgid "Resources Monitor"
+msgstr ""
+
+msgid "Revert all metric symbols back to: ⚡ 🎮 🧠 ⇄ 💽 📶"
+msgstr ""
+
+msgid "RezMon could not find a supported NVIDIA, AMD, or Intel GPU."
 msgstr ""
 
 msgid "Right"
@@ -180,7 +202,13 @@ msgstr ""
 msgid "SWAP"
 msgstr ""
 
+msgid "SWAP Icon"
+msgstr ""
+
 msgid "SWAP Settings"
+msgstr ""
+
+msgid "Select or customize the symbol used for each metric"
 msgstr ""
 
 msgid "Show CPU"
@@ -192,9 +220,6 @@ msgstr ""
 msgid "Show GPU"
 msgstr ""
 
-msgid "Show Hover Tooltip"
-msgstr ""
-
 msgid "Show NET"
 msgstr ""
 
@@ -202,6 +227,9 @@ msgid "Show RAM"
 msgstr ""
 
 msgid "Show SWAP"
+msgstr ""
+
+msgid "Show every detected GPU"
 msgstr ""
 
 msgid "Small"
@@ -219,7 +247,10 @@ msgstr ""
 msgid "Spacing"
 msgstr ""
 
-msgid "Symbols (⚙, 🖥, ...)"
+msgid "Symbols & Text (⚡ CPU, ...)"
+msgstr ""
+
+msgid "Symbols (⚡, 🎮, 🧠, ...)"
 msgstr ""
 
 msgid "System Monitor"
@@ -237,10 +268,13 @@ msgstr ""
 msgid "Temperature Warning Threshold (℃)"
 msgstr ""
 
-msgid "Text (CPU, RAM, ...)"
+msgid "Text (CPU, GPU, RAM, ...)"
 msgstr ""
 
 msgid "Toggle Components"
+msgstr ""
+
+msgid "Unknown GPU"
 msgstr ""
 
 msgid "Update Interval (sec)"
@@ -259,6 +293,9 @@ msgid "Usage Warning Threshold (%)"
 msgstr ""
 
 msgid "Used"
+msgstr ""
+
+msgid "Used %"
 msgstr ""
 
 msgid "VRAM Free"
@@ -283,5 +320,95 @@ msgid "htop (Terminal)"
 msgstr ""
 
 msgid "space"
+msgstr ""
+
+msgid "⇄  Horizontal Arrows (Default)"
+msgstr ""
+
+msgid "⇅  Upload / Download"
+msgstr ""
+
+msgid "⇅  Vertical Arrows"
+msgstr ""
+
+msgid "⇆  Left-Right Arrows"
+msgstr ""
+
+msgid "⇋  Exchange Harpoons"
+msgstr ""
+
+msgid "⎈  Processor Core"
+msgstr ""
+
+msgid "▤  Matrix"
+msgstr ""
+
+msgid "▮  Memory Stick"
+msgstr ""
+
+msgid "⚙  Gear"
+msgstr ""
+
+msgid "⚡  Lightning (Default)"
+msgstr ""
+
+msgid "🌐  Globe"
+msgstr ""
+
+msgid "🎬  Clapper / Video"
+msgstr ""
+
+msgid "🎮  Gamepad (Default)"
+msgstr ""
+
+msgid "💻  Computer"
+msgstr ""
+
+msgid "💽  Drive Disc (Default)"
+msgstr ""
+
+msgid "💾  Floppy Disk"
+msgstr ""
+
+msgid "📁  Folder / Storage"
+msgstr ""
+
+msgid "📡  Satellite"
+msgstr ""
+
+msgid "📦  Storage Blocks"
+msgstr ""
+
+msgid "📶  Signal Bars (Default)"
+msgstr ""
+
+msgid "🔲  Processor Die"
+msgstr ""
+
+msgid "🕹  Joystick"
+msgstr ""
+
+msgid "🖥  Desktop"
+msgstr ""
+
+msgid "🖥  Display Monitor"
+msgstr ""
+
+msgid "🖧  LAN Network"
+msgstr ""
+
+msgid "🖴  Hard Disk"
+msgstr ""
+
+msgid "🖼  Frame / Graphics"
+msgstr ""
+
+msgid "🗄  Filing Cabinet"
+msgstr ""
+
+msgid "🗄  Memory Bank"
+msgstr ""
+
+msgid "🧠  Brain (Default)"
 msgstr ""
 

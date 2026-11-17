@@ -5,7 +5,7 @@ BUILD := build/$(UUID)
 
 SRC := $(shell find src -type f)
 
-.PHONY: build install reload uninstall zip clean pot mo
+.PHONY: build install reload uninstall zip clean pot mo test
 
 
 build: $(SRC)
@@ -56,6 +56,9 @@ zip: build
 
 clean:
 	rm -rf build
+
+test:
+	gjs -m tests/test-gpu.js
 
 pot:
 	python3 -c "import re, glob, os; strings = sorted(set(re.findall(r'_\([\"\'](.*?)[\"\']\)', ''.join(open(p, encoding='utf-8').read() for p in glob.glob('src/**/*.js', recursive=True) + glob.glob('src/*.js'))))); os.makedirs('po', exist_ok=True); f = open('po/rezmon.pot', 'w', encoding='utf-8'); f.write('# RezMon POT\nmsgid \"\"\nmsgstr \"\"\n\"Content-Type: text/plain; charset=UTF-8\\n\"\n\n'); [f.write(f'msgid \"{s}\"\nmsgstr \"\"\n\n') for s in strings if s]; print(f'Updated po/rezmon.pot with {len(strings)} strings')"

@@ -6,6 +6,7 @@ import Gio from 'gi://Gio';
 
 import { ExtensionPreferences, gettext as _ } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 import { readFileLines } from './utils/file.js';
+import { applyGpuSelectionMigration, listGPUs } from './metrics/gpu.js';
 
 export default class RezMonPreferences extends ExtensionPreferences {
 
@@ -76,17 +77,15 @@ export default class RezMonPreferences extends ExtensionPreferences {
         });
         window.add(gpuPage);
 
+        const gpuSelectGroup = new Adw.PreferencesGroup({
+            title: _("Display GPUs"),
+            description: _("Choose which GPUs appear in the top bar and dropdown"),
+        });
+        gpuPage.add(gpuSelectGroup);
+        await this._buildGpuSelector(gpuSelectGroup, settings);
+
         const gpuGroup = new Adw.PreferencesGroup({ title: _("GPU Settings") });
         gpuPage.add(gpuGroup);
-
-        gpuGroup.add(this._createComboRow(
-            _("GPU Device"),
-            settings,
-            [_("Auto (Prefer Dedicated)"), _("Dedicated GPU"), _("Integrated GPU")],
-            ["auto", "dedicated", "integrated"],
-            (value) => settings.set_string("gpu-device", value),
-            () => settings.get_string("gpu-device")
-        ));
 
         gpuGroup.add(this._createSwitchRow(_("Usage %"), settings, "gpu-usage"));
         gpuGroup.add(this._createSwitchRow(_("Clock"), settings, "gpu-clock"));
@@ -458,6 +457,76 @@ export default class RezMonPreferences extends ExtensionPreferences {
             "temp-crit-threshold",
             30, 120, 1
         ));
+    }
+
+    async _buildGpuSelector(group, settings) {
+        let gpus = [];
+        try {
+            gpus = await listGPUs({ force: true });
+        } catch (_) {
+            gpus = [];
+        }
+
+        if (!gpus.length) {
+            group.add(new Adw.ActionRow({
+                title: _("No GPU detected"),
+                subtitle: _("RezMon could not find a supported NVIDIA, AMD, or Intel GPU."),
+            }));
+            return;
+        }
+
+        const selected = applyGpuSelectionMigration(settings, gpus);
+        const isAll = selected.includes('all');
+
+        const allRow = new Adw.SwitchRow({
+            title: _("All GPUs"),
+            subtitle: _("Show every detected GPU"),
+        });
+        group.add(allRow);
+
+        let lock = false;
+        const gpuRows = [];
+
+        const allChildrenOn = () => gpuRows.length > 0 && gpuRows.every(item => item.row.active);
+
+        const persist = () => {
+            const ids = gpuRows.filter(item => item.row.active).map(item => item.gpu.id);
+            settings.set_strv('gpu-selected', allChildrenOn() ? ['all'] : ids);
+        };
+
+        allRow.connect('notify::active', () => {
+            if (lock)
+                return;
+            lock = true;
+            for (const item of gpuRows)
+                item.row.active = allRow.active;
+            persist();
+            lock = false;
+        });
+
+        for (const gpu of gpus) {
+            const row = new Adw.SwitchRow({
+                title: `GPU ${gpu.index}`,
+                subtitle: gpu.name || _("Unknown GPU"),
+                active: isAll || selected.includes(gpu.id),
+            });
+
+            row.connect('notify::active', () => {
+                if (lock)
+                    return;
+                lock = true;
+                allRow.active = allChildrenOn();
+                persist();
+                lock = false;
+            });
+
+            group.add(row);
+            gpuRows.push({ gpu, row });
+        }
+
+        lock = true;
+        allRow.active = allChildrenOn();
+        lock = false;
     }
 
     _createSpinRow(title, settings, key, lower, upper, step) {
